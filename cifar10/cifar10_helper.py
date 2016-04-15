@@ -53,12 +53,12 @@ class cifar10_conv(ModelInf):
                     bias_filler=dict(type='constant'))
             n.pool1 = pooling_layer(n.conv1, 'max', 3, stride=2)
             n.relu1 = caffe.layers.ReLU(n.pool1,in_place=True)
-            n.norm1 = caffe.layers.LRN(n.pool1, local_size=arm['size'], alpha=arm['scale'], beta=arm['power'], norm_region=1)
+            n.norm1 = caffe.layers.LRN(n.pool1, local_size=3, alpha=arm['scale'], beta=arm['power'], norm_region=1)
             n.conv2 = conv_layer(n.norm1, 5, 32, pad=2, stride=1, param=[dict(lr_mult=1,decay_mult=arm['weight_cost2']/weight_decay),bias_param],weight_filler=dict(type='gaussian', std=arm['init_std2']),
                     bias_filler=dict(type='constant'))
             n.relu2 = caffe.layers.ReLU(n.conv2, in_place=True)
             n.pool2 = pooling_layer(n.conv2, 'ave', 3, stride=2)
-            n.norm2 = caffe.layers.LRN(n.pool2, local_size=arm['size'], alpha=arm['scale'], beta=arm['power'], norm_region=1)
+            n.norm2 = caffe.layers.LRN(n.pool2, local_size=3, alpha=arm['scale'], beta=arm['power'], norm_region=1)
             n.conv3 = conv_layer(n.norm2, 5, 64, pad=2, stride=1, param=[dict(lr_mult=1,decay_mult=arm['weight_cost3']/weight_decay),bias_param],weight_filler=dict(type='gaussian', std=arm['init_std3']),
                     bias_filler=dict(type='constant'))
             n.relu3 = caffe.layers.ReLU(n.conv3, in_place=True)
@@ -149,7 +149,7 @@ class cifar10_conv(ModelInf):
             arm['weight_cost2']=0.004
             arm['weight_cost3']=0.004
             arm['weight_cost4']=1
-            arm['size']=3
+            #arm['size']=3
             arm['scale']=0.00005
             arm['power']=0.75
             arm['batch_size']=100
@@ -182,7 +182,7 @@ class cifar10_conv(ModelInf):
             arm['weight_cost2']=10**random.uniform(-5,0)
             arm['weight_cost3']=10**random.uniform(-5,0)
             arm['weight_cost4']=10**random.uniform(-5,0)
-            arm['size']=3
+            #arm['size']=3
             arm['scale']=5*10**random.uniform(-6,0)
             arm['power']=random.uniform(0.25,5)
             #int(10**random.uniform(2,4)/100)*100

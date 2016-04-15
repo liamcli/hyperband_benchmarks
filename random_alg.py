@@ -20,8 +20,8 @@ def random(model,units,runtime,dir,max_units=60000):
     pickle.dump([results,arms],open(dir+'/results.pkl','w'))
 
 def main():
-    cifar_model=cifar10_conv(device=0,seed=2)
-    dir="/home/lisha/school/Projects/hyperband_nnet/hyperband2/cifar10/random/trial2"
+    cifar_model=cifar10_conv(device=0,seed=5)
+    dir="/home/lisha/school/Projects/hyperband_nnet/hyperband2/cifar10/random/trial5"
     if not os.path.exists(dir):
         os.makedirs(dir)
     #hyperband_inf(cifar_model,0.05)

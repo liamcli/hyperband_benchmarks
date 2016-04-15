@@ -67,19 +67,23 @@ def hyperband_inf(model,runtime,units,min_unit=10):
     print time.localtime(time.time())
     pickle.dump([time_test,results_dict],open('/home/lisha/school/Projects/hyperband_nnet/hyperband2/cifar10/hyperband_2/results.pkl','w'))
 
-def hyperband_finite(model,runtime,units,dir,bounded=True, min_units=400,max_units=60000):
+def hyperband_finite(model,runtime,units,dir,bounded=True, min_units=100,max_units=60000):
     # input t in minutes
     t_0 = time.time()
     print time.localtime(t_0)
     def minutes(t):
         return (t-t_0)/60.
-    k=0
+    k=2
     results_dict={}
     time_test=[]
     while minutes(time.time())< runtime:
         print "time elapsed: "+ str(minutes(time.time()))
         B = int((2**k)*max_units)
         eta = 4.
+        def logeta(x):
+            return numpy.log(x)/numpy.log(eta)
+        #B=(int(logeta(max_units/min_units))+1)*max_units
+
         k+=1
         if bounded:
             max_halvings = int(numpy.log(max_units/min_units)/numpy.log(eta))
@@ -87,10 +91,6 @@ def hyperband_finite(model,runtime,units,dir,bounded=True, min_units=400,max_uni
         print "\nBudget B = %d" % B
         print '###################'
 
-
-
-        def logeta(x):
-            return numpy.log(x)/numpy.log(eta)
 
         # s_max defines the number of inner loops per unique value of B
         # it also specifies the maximum number of rounds
@@ -106,9 +106,9 @@ def hyperband_finite(model,runtime,units,dir,bounded=True, min_units=400,max_uni
 
             if n> 0:
                 s = 0
-                while (n)*R*(s+1.)*eta**(-s)>=B:
+                while (n)*R*(s+1.)*eta**(-s)>B:
                     s+=1
-                s-=1
+                #s-=1
 
                 print
                 print 's=%d, n=%d' %(s,n)
@@ -145,11 +145,12 @@ def sha_finite(model,units, n, s, eta, R,dir):
     return arms,[best_arm,remaining_arms[0][1],remaining_arms[0][2],remaining_arms[0][3]]
 
 def main():
-    dir='/home/lisha/school/Projects/hyperband_nnet/hyperband2/cifar10/hyperband/trial2'
+    dir='/home/lisha/school/Projects/hyperband_nnet/hyperband2/cifar10/hyperband/trial7'
+    #Starting 6 used increasing budget, before used constant budget for max metaarms
     if not os.path.exists(dir):
         os.makedirs(dir)
     sys.stdout = Logger(dir)
-    cifar_model=cifar10_conv(device=1,seed=2)
+    cifar_model=cifar10_conv(device=1,seed=7)
     #hyperband_inf(cifar_model,0.05)
     hyperband_finite(cifar_model,600,'iter',dir)
 
