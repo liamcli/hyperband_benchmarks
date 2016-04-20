@@ -4,6 +4,7 @@ os.environ['GLOG_minloglevel'] = '1'
 import caffe
 from model_def import ModelInf
 import time
+import sys
 
 #Globals
 base_lr = 0.001
@@ -11,11 +12,12 @@ weight_decay= 0.004
 weight_param = dict(lr_mult=1, decay_mult=1)
 bias_param   = dict(lr_mult=2, decay_mult=0)
 learned_param = [weight_param, bias_param]
-data_dir="/home/lisha/school/caffe/examples/cifar10"
+#self.data_dir="/home/lisha/school/caffe/examples/cifar10"
 
 
 class cifar10_conv(ModelInf):
-    def __init__(self,device=0,seed=1):
+    def __init__(self,data_dir, device=0,seed=1):
+        self.data_dir=data_dir
         self.name="cifar10_conv"
         caffe.set_device(device)
         caffe.set_mode_gpu()
@@ -40,15 +42,15 @@ class cifar10_conv(ModelInf):
 
             n = caffe.NetSpec()
             if split==1:
-                n.data, n.label = caffe.layers.Data(batch_size=arm['batch_size'], backend=caffe.params.Data.LMDB, source=data_dir+"/cifar10_train_lmdb",
-                                     transform_param=dict(mean_file=data_dir+"/mean.binaryproto"),ntop=2)
-                #transform_param=dict(mean_file=data_dir+"/mean.binaryproto"),
+                n.data, n.label = caffe.layers.Data(batch_size=arm['batch_size'], backend=caffe.params.Data.LMDB, source=self.data_dir+"/cifar10_eventrain_lmdb",
+                                     transform_param=dict(mean_file=self.data_dir+"/mean.binaryproto"),ntop=2)
+                #transform_param=dict(mean_file=self.data_dir+"/mean.binaryproto"),
             elif split==2:
-                n.data, n.label = caffe.layers.Data(batch_size=arm['batch_size'], backend=caffe.params.Data.LMDB, source=data_dir+"/cifar10_val_lmdb",
-                                     transform_param=dict(mean_file=data_dir+"/mean.binaryproto"),ntop=2)
+                n.data, n.label = caffe.layers.Data(batch_size=arm['batch_size'], backend=caffe.params.Data.LMDB, source=self.data_dir+"/cifar10_evenval_lmdb",
+                                     transform_param=dict(mean_file=self.data_dir+"/mean.binaryproto"),ntop=2)
             elif split==3:
-                n.data, n.label = caffe.layers.Data(batch_size=arm['batch_size'], backend=caffe.params.Data.LMDB, source=data_dir+"/cifar10_test_lmdb",
-                                     transform_param=dict(mean_file=data_dir+"/mean.binaryproto"),ntop=2)
+                n.data, n.label = caffe.layers.Data(batch_size=arm['batch_size'], backend=caffe.params.Data.LMDB, source=self.data_dir+"/cifar10_test_lmdb",
+                                     transform_param=dict(mean_file=self.data_dir+"/mean.binaryproto"),ntop=2)
             n.conv1 = conv_layer(n.data, 5, 32, pad=2, stride=1, param=[dict(lr_mult=1,decay_mult=arm['weight_cost1']/weight_decay),bias_param],weight_filler=dict(type='gaussian', std=arm['init_std1']),
                     bias_filler=dict(type='constant'))
             n.pool1 = pooling_layer(n.conv1, 'max', 3, stride=2)
@@ -234,10 +236,13 @@ class cifar10_conv(ModelInf):
         return train_loss,val_acc, test_acc
 
 def main():
-
-    model= cifar10_conv()
-    arms = model.generate_arms(1,"/home/lisha/school/Projects/hyperband_nnet/hyperband2/cifar10/hyperband/trial2",True)
-    train_loss,val_acc, test_acc = model.run_solver('iter',40000,arms[0])
+    data_dir=sys.argv[1]
+    output_dir=sys.argv[2]
+    #"/home/lisha/school/caffe/examples/cifar10"
+    model= cifar10_conv(data_dir)
+    #"/home/lisha/school/Projects/hyperband_nnet/hyperband2/cifar10/default"
+    arms = model.generate_arms(1,output_dir,True)
+    train_loss,val_acc, test_acc = model.run_solver('iter',60000,arms[0])
     print train_loss, val_acc, test_acc
 
 

@@ -2,7 +2,7 @@ import time
 import numpy
 import pickle
 import os
-import sys
+import sys,getopt
 from cifar10.cifar10_helper import cifar10_conv
 
 
@@ -77,7 +77,7 @@ def hyperband_finite(model,runtime,units,dir,bounded=True, min_units=100,max_uni
     results_dict={}
     time_test=[]
     while minutes(time.time())< runtime:
-        print "time elapsed: "+ str(minutes(time.time()))
+
         B = int((2**k)*max_units)
         eta = 4.
         def logeta(x):
@@ -117,10 +117,11 @@ def hyperband_finite(model,runtime,units,dir,bounded=True, min_units=100,max_uni
                 results_dict[(k,ell)]=arms
                 print "k="+str(k)+", l="+str(ell)+", val_acc="+str(result[2])+", test_acc="+str(result[3])+" best_arm_dir: " + result[0]['dir']
                 time_test.append([minutes(time.time()),result])
+                print "time elapsed: "+ str(minutes(time.time()))
 
                 ell-=1
-        print minutes(time.time())
-        print time.localtime(time.time())
+        #print minutes(time.time())
+        #print time.localtime(time.time())
         pickle.dump([time_test,results_dict],open(dir+'/results.pkl','w'))
 
 def sha_finite(model,units, n, s, eta, R,dir):
@@ -144,15 +145,37 @@ def sha_finite(model,units, n, s, eta, R,dir):
     best_arm=arms[remaining_arms[0][0]]
     return arms,[best_arm,remaining_arms[0][1],remaining_arms[0][2],remaining_arms[0][3]]
 
-def main():
-    dir='/home/lisha/school/Projects/hyperband_nnet/hyperband2/cifar10/hyperband/trial7'
+def main(argv):
+
+    data_dir=''
+    output_dir=''
+    seed_id=0
+    device_id=0
+    try:
+        opts, args = getopt.getopt(argv,"hi:o:s:d:",['input_dir=','output_dir=','seed-','device='])
+    except getopt.GetoptError:
+        print 'hyperband_alg.py -i <data_dir> -o <output_dir> -s <rng_seed> -d <GPU_id>'
+        sys.exit(2)
+    for opt, arg in opts:
+        if opt == '-h':
+            print 'hyperband_alg.py -i <data_dir> -o <output_dir> -s <rng_seed> -d <GPU_id>'
+            sys.exit()
+        elif opt in ("-i", "--input_dir"):
+            data_dir = arg
+        elif opt in ("-o", "--output_dir"):
+            output_dir = arg
+        elif opt in ("-s", "--seed"):
+            seed_id = int(arg)
+        elif opt in ("-d", "--device"):
+            device_id= int(arg)
+    dir=output_dir+'/trial'+str(seed_id)
     #Starting 6 used increasing budget, before used constant budget for max metaarms
     if not os.path.exists(dir):
         os.makedirs(dir)
     sys.stdout = Logger(dir)
-    cifar_model=cifar10_conv(device=1,seed=7)
+    cifar_model=cifar10_conv(data_dir,device=device_id,seed=seed_id)
     #hyperband_inf(cifar_model,0.05)
-    hyperband_finite(cifar_model,600,'iter',dir)
+    hyperband_finite(cifar_model,120,'iter',dir)
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])
