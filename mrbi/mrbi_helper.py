@@ -17,10 +17,10 @@ learned_param = [weight_param, bias_param]
 #self.data_dir="/home/lisha/school/caffe/examples/cifar10"
 
 
-class cifar10_conv(ModelInf):
+class mrbi_conv(ModelInf):
     def __init__(self,data_dir,device=0,seed=1):
         self.data_dir=data_dir
-        self.name="cifar10_conv"
+        self.name="svhn_conv"
         caffe.set_device(device)
         caffe.set_mode_gpu()
         self.device=device
@@ -44,31 +44,35 @@ class cifar10_conv(ModelInf):
 
             n = caffe.NetSpec()
             if split==1:
-                n.data, n.label = caffe.layers.Data(batch_size=arm['batch_size'], backend=caffe.params.Data.LMDB, source=self.data_dir+"/cifar10_eventrain_lmdb",
-                                     transform_param=dict(mean_file=self.data_dir+"/mean.binaryproto"),ntop=2)
+                n.data, n.label = caffe.layers.Data(batch_size=arm['batch_size'], backend=caffe.params.Data.LMDB, source=self.data_dir+"/mrbi_train",
+                    transform_param=dict(mean_file=self.data_dir+"/mean.binaryproto"),ntop=2)
                 #transform_param=dict(mean_file=self.data_dir+"/mean.binaryproto"),
             elif split==2:
-                n.data, n.label = caffe.layers.Data(batch_size=arm['batch_size'], backend=caffe.params.Data.LMDB, source=self.data_dir+"/cifar10_evenval_lmdb",
-                                     transform_param=dict(mean_file=self.data_dir+"/mean.binaryproto"),ntop=2)
+                n.data, n.label = caffe.layers.Data(batch_size=arm['batch_size'], backend=caffe.params.Data.LMDB, source=self.data_dir+"/mrbi_val",
+                    transform_param=dict(mean_file=self.data_dir+"/mean.binaryproto"),ntop=2)
             elif split==3:
-                n.data, n.label = caffe.layers.Data(batch_size=arm['batch_size'], backend=caffe.params.Data.LMDB, source=self.data_dir+"/cifar10_test_lmdb",
-                                     transform_param=dict(mean_file=self.data_dir+"/mean.binaryproto"),ntop=2)
+                n.data, n.label = caffe.layers.Data(batch_size=arm['batch_size'], backend=caffe.params.Data.LMDB, source=self.data_dir+"/mrbi_test",
+                    transform_param=dict(mean_file=self.data_dir+"/mean.binaryproto"),ntop=2)
             n.conv1 = conv_layer(n.data, 5, 32, pad=2, stride=1, param=[dict(lr_mult=1,decay_mult=arm['weight_cost1']/weight_decay),bias_param],weight_filler=dict(type='gaussian', std=arm['init_std1']),
-                    bias_filler=dict(type='constant'))
+                    bias_filler=dict(type='constant',value=0))
             n.pool1 = pooling_layer(n.conv1, 'max', 3, stride=2)
             n.relu1 = caffe.layers.ReLU(n.pool1,in_place=True)
             n.norm1 = caffe.layers.LRN(n.pool1, local_size=3, alpha=arm['scale'], beta=arm['power'], norm_region=1)
             n.conv2 = conv_layer(n.norm1, 5, 32, pad=2, stride=1, param=[dict(lr_mult=1,decay_mult=arm['weight_cost2']/weight_decay),bias_param],weight_filler=dict(type='gaussian', std=arm['init_std2']),
-                    bias_filler=dict(type='constant'))
+                    bias_filler=dict(type='constant',value=0))
             n.relu2 = caffe.layers.ReLU(n.conv2, in_place=True)
-            n.pool2 = pooling_layer(n.conv2, 'ave', 3, stride=2)
+            n.pool2 = pooling_layer(n.conv2, 'max', 3, stride=2)
             n.norm2 = caffe.layers.LRN(n.pool2, local_size=3, alpha=arm['scale'], beta=arm['power'], norm_region=1)
             n.conv3 = conv_layer(n.norm2, 5, 64, pad=2, stride=1, param=[dict(lr_mult=1,decay_mult=arm['weight_cost3']/weight_decay),bias_param],weight_filler=dict(type='gaussian', std=arm['init_std3']),
-                    bias_filler=dict(type='constant'))
+                    bias_filler=dict(type='constant',value=0))
             n.relu3 = caffe.layers.ReLU(n.conv3, in_place=True)
-            n.pool3 = pooling_layer(n.conv3, 'ave', 3, stride=2)
+            n.pool3 = pooling_layer(n.conv3, 'max', 3, stride=2)
             n.ip1 = caffe.layers.InnerProduct(n.pool3, num_output=10, param=[dict(lr_mult=1,decay_mult=arm['weight_cost4']/weight_decay),bias_param],weight_filler=dict(type='gaussian', std=arm['init_std4']),
-                    bias_filler=dict(type='constant'))
+                    bias_filler=dict(type='constant',value=0))
+            #n.ip2 = caffe.layers.InnerProduct(n.ip1, num_output=2048, param=[dict(lr_mult=1,decay_mult=arm['weight_cost4']/weight_decay),bias_param],weight_filler=dict(type='gaussian', std=arm['init_std4']),
+            #        bias_filler=dict(type='constant',value=0))
+            #n.ip3 = caffe.layers.InnerProduct(n.ip2, num_output=10, param=[dict(lr_mult=1,decay_mult=arm['weight_cost4']/weight_decay),bias_param],weight_filler=dict(type='gaussian', std=arm['init_std4']),
+            #        bias_filler=dict(type='constant',value=0))
             n.loss = caffe.layers.SoftmaxWithLoss(n.ip1, n.label)
             if split==1:
                 filename=arm['dir']+'/network_train.prototxt'
@@ -91,8 +95,8 @@ class cifar10_conv(ModelInf):
             s.test_net.append(arm['val_net_file'])
             s.test_net.append(arm['test_net_file'])
             s.test_interval = 60000  # Test after every 1000 training iterations.
-            s.test_iter.append(int(10000/arm['batch_size'])) # Test on 100 batches each time we test.
-            s.test_iter.append(int(10000/arm['batch_size'])) # Test on 100 batches each time we test.
+            s.test_iter.append(int(6000/arm['batch_size'])) # Test on 100 batches each time we test.
+            s.test_iter.append(int(26000/arm['batch_size'])) # Test on 100 batches each time we test.
 
             # The number of iterations over which to average the gradient.
             # Effectively boosts the training batch size by the given factor, without
@@ -149,20 +153,21 @@ class cifar10_conv(ModelInf):
                 os.makedirs(dirname)
             arm['dir']=dir+"/"+dirname
             arm['n_iter']=0
-            arm['learning_rate']=0.0009
-            arm['weight_cost1']=0.0003
-            arm['weight_cost2']=0.0075
-            arm['weight_cost3']=0.0089
-            arm['weight_cost4']=0.0028
+            arm['momentum']=0.90
+            arm['learning_rate']=0.001
+            arm['weight_cost1']=0.004
+            arm['weight_cost2']=0.004
+            arm['weight_cost3']=0.004
+            arm['weight_cost4']=1
             #arm['size']=3
             arm['scale']=0.00005
-            arm['power']=0.75
+            arm['power']=0.010001
             arm['batch_size']=100
             arm['lr_step']=1
-            arm['init_std1']=0.001
-            arm['init_std2']=0.001
-            arm['init_std3']=0.001
-            arm['init_std4']=0.001
+            arm['init_std1']=0.0001
+            arm['init_std2']=0.01
+            arm['init_std3']=0.01
+            arm['init_std4']=0.01
             arm['train_net_file'] = build_net(arm,1)
             arm['val_net_file'] = build_net(arm,2)
             arm['test_net_file'] = build_net(arm,3)
@@ -184,7 +189,7 @@ class cifar10_conv(ModelInf):
             arm['n_iter']=0
             #before 1400
             #arm['learning_rate']=5*10**random.uniform(-5,-1)
-            hps=['learning_rate','weight_cost1','weight_cost2','weight_cost3','weight_cost4','scale','power','lr_step']
+            hps=['learning_rate','weight_cost1','weight_cost2','weight_cost3','weight_cost4','scale','power','lr_step','momentum']
             for hp in hps:
                 val=params[hp].get_param_range(1,stochastic=True)
                 arm[hp]=val[0]
@@ -244,14 +249,17 @@ class cifar10_conv(ModelInf):
         train_loss = s.net.blobs['loss'].data
         val_acc=0
         test_acc=0
-        batches=100
-        for i in range(batches):
+        test_batches=500
+        val_batches=20
+        for i in range(val_batches):
             s.test_nets[0].forward()
-            s.test_nets[1].forward()
             val_acc += s.test_nets[0].blobs['acc'].data
+        for i in range(test_batches):
+            s.test_nets[1].forward()
             test_acc += s.test_nets[1].blobs['acc'].data
-        val_acc=val_acc/batches
-        test_acc=test_acc/batches
+
+        val_acc=val_acc/val_batches
+        test_acc=test_acc/test_batches
         return train_loss,val_acc, test_acc
 def get_cnn_search_space():
     params={}
@@ -260,6 +268,7 @@ def get_cnn_search_space():
     params['weight_cost2']=Param('weight_cost2',numpy.log(5*10**(-5)),numpy.log(5),distrib='uniform',scale='log')
     params['weight_cost3']=Param('weight_cost3',numpy.log(5*10**(-5)),numpy.log(5),distrib='uniform',scale='log')
     params['weight_cost4']=Param('weight_cost4',numpy.log(5*10**(-3)),numpy.log(500),distrib='uniform',scale='log')
+    #params['momentum']=Param('momentum',0,1,distrib='uniform',scale='linear')
     #arm['size']=3
     params['scale']=Param('scale',numpy.log(5*10**(-6)),numpy.log(5),distrib='uniform',scale='log')
     #before 2000
@@ -267,18 +276,17 @@ def get_cnn_search_space():
     #int(10**random.uniform(2,4)/100)*100
     params['power']=Param('power',0.01,3,distrib='uniform',scale='linear')
     params['lr_step']=Param('lr_step',1,5,distrib='uniform',scale='linear',interval=1)
-
     return params
 
 def main():
     data_dir=sys.argv[1]
     output_dir=sys.argv[2]
     #"/home/lisha/school/caffe/examples/cifar10"
-    model= cifar10_conv(data_dir,device=0)
+    model= mrbi_conv(data_dir,device=0)
     param=get_cnn_search_space()
     #"/home/lisha/school/Projects/hyperband_nnet/hyperband2/cifar10/default"
     arms = model.generate_arms(1,output_dir,param,True)
-    train_loss,val_acc, test_acc = model.run_solver('iter',1000,arms[0])
+    train_loss,val_acc, test_acc = model.run_solver('iter',2000,arms[0])
     print train_loss, val_acc, test_acc
 
 

@@ -3,7 +3,10 @@ import numpy
 import pickle
 import os
 import sys,getopt
-from cifar10.cifar10_helper import cifar10_conv
+from params import zoom_space
+from cifar10.cifar10_helper import cifar10_conv,get_cnn_search_space
+from svhn.svhn_helper import svhn_conv
+from mrbi.mrbi_helper import mrbi_conv
 
 
 
@@ -67,7 +70,7 @@ def hyperband_inf(model,runtime,units,min_unit=10):
     print time.localtime(time.time())
     pickle.dump([time_test,results_dict],open('/home/lisha/school/Projects/hyperband_nnet/hyperband2/cifar10/hyperband_2/results.pkl','w'))
 
-def hyperband_finite(model,runtime,units,dir,bounded=True, min_units=100,max_units=60000):
+def hyperband_finite(model,runtime,units,dir,params,min_units,max_units,bounded=True, adaptive=True):
     # input t in minutes
     t_0 = time.time()
     print time.localtime(t_0)
@@ -79,6 +82,7 @@ def hyperband_finite(model,runtime,units,dir,bounded=True, min_units=100,max_uni
     while minutes(time.time())< runtime:
 
         B = int((2**k)*max_units)
+        #B = 15*max_units
         eta = 4.
         def logeta(x):
             return numpy.log(x)/numpy.log(eta)
@@ -98,8 +102,10 @@ def hyperband_finite(model,runtime,units,dir,bounded=True, min_units=100,max_uni
         r = float(min_units)
         ell_max = int(min(B/R-1,int(logeta(R/r))))
         ell = ell_max
+        best_val =0
 
         while ell >= 0 and minutes(time.time())< runtime:
+        #while minutes(time.time())< runtime:
 
             # specify the number of arms and the number of times each arm is pulled per stage within this innerloop
             n = int( B/R*eta**ell/(ell+1.) )
@@ -113,19 +119,32 @@ def hyperband_finite(model,runtime,units,dir,bounded=True, min_units=100,max_uni
                 print
                 print 's=%d, n=%d' %(s,n)
                 print 'n_i\tr_k'
-                arms,result = sha_finite(model,units, n,s,eta,R,dir)
+                arms,result = sha_finite(model,params,units, n,s,eta,R,dir)
                 results_dict[(k,ell)]=arms
                 print "k="+str(k)+", l="+str(ell)+", val_acc="+str(result[2])+", test_acc="+str(result[3])+" best_arm_dir: " + result[0]['dir']
                 time_test.append([minutes(time.time()),result])
                 print "time elapsed: "+ str(minutes(time.time()))
+                if result[2]>best_val:
+                    best_val=result[2]
+                    best_n=n
+                    best_s=s
+                    best_arm=result[0]
 
                 ell-=1
+
         #print minutes(time.time())
         #print time.localtime(time.time())
-        pickle.dump([time_test,results_dict],open(dir+'/results.pkl','w'))
+        if adaptive:
+            zoom_params=zoom_space(params,best_arm)
+            arms,result = sha_finite(model,zoom_params,units, best_n,best_s,eta,R,dir)
+            results_dict[(k,ell)]=arms
+            print "k="+str(k)+", l="+str(ell)+", val_acc="+str(result[2])+", test_acc="+str(result[3])+" best_arm_dir: " + result[0]['dir']
+            time_test.append([minutes(time.time()),result])
 
-def sha_finite(model,units, n, s, eta, R,dir):
-    arms = model.generate_arms(n,dir)
+    pickle.dump([time_test,results_dict],open(dir+'/results.pkl','w'))
+
+def sha_finite(model,params,units, n, s, eta, R,dir):
+    arms = model.generate_arms(n,dir,params)
     remaining_arms=[list(a) for a in zip(arms.keys(),[0]*len(arms.keys()),[0]*len(arms.keys()),[0]*len(arms.keys()))]
     for i in range(s+1):
         num_pulls = int(R*eta**(i-s))
@@ -134,6 +153,7 @@ def sha_finite(model,units, n, s, eta, R,dir):
         for a in range(len(remaining_arms)):
             arm_key=remaining_arms[a][0]
             train_loss,val_acc,test_acc=model.run_solver(units, num_pulls,arms[arm_key])
+            print arm_key, train_loss, val_acc, test_acc
             arms[arm_key]['results'].append([num_pulls,train_loss,val_acc,test_acc])
             remaining_arms[a][1]=train_loss
             remaining_arms[a][2]=val_acc
@@ -147,19 +167,22 @@ def sha_finite(model,units, n, s, eta, R,dir):
 
 def main(argv):
 
+    model=''
     data_dir=''
     output_dir=''
     seed_id=0
     device_id=0
     try:
-        opts, args = getopt.getopt(argv,"hi:o:s:d:",['input_dir=','output_dir=','seed-','device='])
+        opts, args = getopt.getopt(argv,"hm:i:o:s:d:",['model=','input_dir=','output_dir=','seed=','device='])
     except getopt.GetoptError:
-        print 'hyperband_alg.py -i <data_dir> -o <output_dir> -s <rng_seed> -d <GPU_id>'
+        print 'hyperband_alg.py -m <model> -i <data_dir> -o <output_dir> -s <rng_seed> -d <GPU_id>'
         sys.exit(2)
     for opt, arg in opts:
         if opt == '-h':
             print 'hyperband_alg.py -i <data_dir> -o <output_dir> -s <rng_seed> -d <GPU_id>'
             sys.exit()
+        elif opt in ("-m", "--model"):
+            model = arg
         elif opt in ("-i", "--input_dir"):
             data_dir = arg
         elif opt in ("-o", "--output_dir"):
@@ -173,9 +196,17 @@ def main(argv):
     if not os.path.exists(dir):
         os.makedirs(dir)
     sys.stdout = Logger(dir)
-    cifar_model=cifar10_conv(data_dir,device=device_id,seed=seed_id)
-    #hyperband_inf(cifar_model,0.05)
-    hyperband_finite(cifar_model,120,'iter',dir)
+    params = get_cnn_search_space()
+    if model=='cifar10':
+        obj=cifar10_conv(data_dir,device=device_id,seed=seed_id)
+        hyperband_finite(obj,360,'iter',dir,params,100,30000)
+    elif model=='svhn':
+        obj=svhn_conv(data_dir,device=device_id,seed=seed_id)
+        hyperband_finite(obj,720,'iter',dir,params,100,60000)
+    elif model=='mrbi':
+        obj=mrbi_conv(data_dir,device=device_id,seed=seed_id)
+        hyperband_finite(obj,360,'iter',dir,params,100,30000)
+
 
 if __name__ == "__main__":
     main(sys.argv[1:])

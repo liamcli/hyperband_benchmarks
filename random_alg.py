@@ -1,6 +1,7 @@
 import time
 import os
 import pickle
+import sys
 from cifar10.cifar10_helper import cifar10_conv
 
 def random(model,units,runtime,dir,max_units=60000):
@@ -20,8 +21,13 @@ def random(model,units,runtime,dir,max_units=60000):
     pickle.dump([results,arms],open(dir+'/results.pkl','w'))
 
 def main():
-    cifar_model=cifar10_conv(device=0,seed=5)
-    dir="/home/lisha/school/Projects/hyperband_nnet/hyperband2/cifar10/random/trial5"
+    print 'Number of arguments:', len(sys.argv), 'arguments.'
+    print 'Argument List:', str(sys.argv)
+    seed_id=int(sys.argv[1])
+    device_id=int(sys.argv[2])
+    data_dir="/home/lisha/school/caffe/examples/cifar10"
+    cifar_model=cifar10_conv(data_dir,device=device_id,seed=seed_id)
+    dir="/home/lisha/school/Projects/hyperband_nnet/hyperband2/cifar10/random/trial"+str(seed_id)
     if not os.path.exists(dir):
         os.makedirs(dir)
     #hyperband_inf(cifar_model,0.05)
