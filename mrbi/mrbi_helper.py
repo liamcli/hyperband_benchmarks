@@ -189,7 +189,7 @@ class mrbi_conv(ModelInf):
             arm['n_iter']=0
             #before 1400
             #arm['learning_rate']=5*10**random.uniform(-5,-1)
-            hps=['learning_rate','weight_cost1','weight_cost2','weight_cost3','weight_cost4','scale','power','lr_step','momentum']
+            hps=['learning_rate','weight_cost1','weight_cost2','weight_cost3','weight_cost4','scale','power','lr_step']
             for hp in hps:
                 val=params[hp].get_param_range(1,stochastic=True)
                 arm[hp]=val[0]
