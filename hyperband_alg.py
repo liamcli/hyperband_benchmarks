@@ -100,9 +100,10 @@ def sha_finite(model,params,units, n, s, eta, R,dir):
         num_arms = int( n*eta**(-i))
         print '%d\t%d' %(num_arms,num_pulls)
         for a in range(len(remaining_arms)):
+            start_time=time.time()
             arm_key=remaining_arms[a][0]
             train_loss,val_acc,test_acc=model.run_solver(units, num_pulls,arms[arm_key])
-            print arm_key, train_loss, val_acc, test_acc
+            print arm_key, train_loss, val_acc, test_acc, (time.time()-start_time)/60.0
             arms[arm_key]['results'].append([num_pulls,train_loss,val_acc,test_acc])
             remaining_arms[a][1]=train_loss
             remaining_arms[a][2]=val_acc
