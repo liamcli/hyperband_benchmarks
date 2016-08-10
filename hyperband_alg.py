@@ -4,11 +4,7 @@ import pickle
 import os
 import sys,getopt
 from params import zoom_space
-from cifar10.cifar10_helper import cifar10_conv,get_cnn_search_space
-from svhn.svhn_helper import svhn_conv
-from mrbi.mrbi_helper import mrbi_conv
-from networkin.nin_helper import nin_conv,get_nin_search_space
-from mnist_svm.svm_helper import *
+
 
 
 class Logger(object):
@@ -150,22 +146,27 @@ def main(argv):
         os.makedirs(dir)
     sys.stdout = Logger(dir)
     if model=='cifar10':
+        from cifar10.cifar10_helper import get_cnn_search_space,cifar10_conv
         params = get_cnn_search_space()
         obj=cifar10_conv(data_dir,device=device_id,seed=seed_id)
         hyperband_finite(obj,360,'iter',dir,params,100,30000)
     elif model=='svhn':
+        from svhn.svhn_helper import get_cnn_search_space,svhn_conv
         params = get_cnn_search_space()
         obj=svhn_conv(data_dir,device=device_id,seed=seed_id)
         hyperband_finite(obj,720,'iter',dir,params,100,60000)
     elif model=='mrbi':
+        from mrbi.mrbi_helper import get_cnn_search_space,mrbi_conv
         params = get_cnn_search_space()
         obj=mrbi_conv(data_dir,device=device_id,seed=seed_id)
         hyperband_finite(obj,360,'iter',dir,params,100,30000)
     elif model=='cifar100':
+        from networkin.nin_helper import get_nin_search_space,nin_conv
         params = get_nin_search_space()
         obj=nin_conv("cifar100",data_dir,device_id,seed_id)
         hyperband_finite(obj,2000,'iter',dir,params,100,60000)
     elif model=='mnist_svm':
+        from mnist_svm.svm_helper import get_svm_search,svm_model
         params= get_svm_search()
         obj=svm_model('mnist_svm',data_dir,seed_id)
         hyperband_finite(obj,24*60,'iter',dir,params,100,40000)
