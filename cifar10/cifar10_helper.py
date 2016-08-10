@@ -1,4 +1,3 @@
-import random
 import os
 import numpy
 from params import Param
@@ -61,12 +60,12 @@ class cifar10_conv(ModelInf):
             n.conv2 = conv_layer(n.norm1, 5, 32, pad=2, stride=1, param=[dict(lr_mult=1,decay_mult=arm['weight_cost2']/weight_decay),bias_param],weight_filler=dict(type='gaussian', std=arm['init_std2']),
                     bias_filler=dict(type='constant'))
             n.relu2 = caffe.layers.ReLU(n.conv2, in_place=True)
-            n.pool2 = pooling_layer(n.conv2, 'max', 3, stride=2)
+            n.pool2 = pooling_layer(n.conv2, 'avg', 3, stride=2)
             n.norm2 = caffe.layers.LRN(n.pool2, local_size=3, alpha=arm['scale'], beta=arm['power'], norm_region=1)
             n.conv3 = conv_layer(n.norm2, 5, 64, pad=2, stride=1, param=[dict(lr_mult=1,decay_mult=arm['weight_cost3']/weight_decay),bias_param],weight_filler=dict(type='gaussian', std=arm['init_std3']),
                     bias_filler=dict(type='constant'))
             n.relu3 = caffe.layers.ReLU(n.conv3, in_place=True)
-            n.pool3 = pooling_layer(n.conv3, 'max', 3, stride=2)
+            n.pool3 = pooling_layer(n.conv3, 'avg', 3, stride=2)
             n.ip1 = caffe.layers.InnerProduct(n.pool3, num_output=10, param=[dict(lr_mult=1,decay_mult=arm['weight_cost4']/weight_decay),bias_param],weight_filler=dict(type='gaussian', std=arm['init_std4']),
                     bias_filler=dict(type='constant'))
             n.loss = caffe.layers.SoftmaxWithLoss(n.ip1, n.label)
@@ -90,7 +89,7 @@ class cifar10_conv(ModelInf):
             s.train_net = arm['train_net_file']
             s.test_net.append(arm['val_net_file'])
             s.test_net.append(arm['test_net_file'])
-            s.test_interval = 60000  # Test after every 1000 training iterations.
+            s.test_interval = 10000  # Test after every 1000 training iterations.
             s.test_iter.append(int(10000/arm['batch_size'])) # Test on 100 batches each time we test.
             s.test_iter.append(int(10000/arm['batch_size'])) # Test on 100 batches each time we test.
 
@@ -149,20 +148,19 @@ class cifar10_conv(ModelInf):
                 os.makedirs(dirname)
             arm['dir']=dir+"/"+dirname
             arm['n_iter']=0
-            arm['learning_rate']=0.0009
-            arm['weight_cost1']=0.0003
-            arm['weight_cost2']=0.0075
-            arm['weight_cost3']=0.0089
-            arm['weight_cost4']=0.0028
-            #arm['size']=3
+            arm['learning_rate']=0.001
+            arm['weight_cost1']=0.004
+            arm['weight_cost2']=0.004
+            arm['weight_cost3']=0.004
+            arm['weight_cost4']=1
             arm['scale']=0.00005
-            arm['power']=0.75
+            arm['power']=0.010001
             arm['batch_size']=100
             arm['lr_step']=1
-            arm['init_std1']=0.001
-            arm['init_std2']=0.001
-            arm['init_std3']=0.001
-            arm['init_std4']=0.001
+            arm['init_std1']=0.0001
+            arm['init_std2']=0.01
+            arm['init_std3']=0.01
+            arm['init_std4']=0.01
             arm['train_net_file'] = build_net(arm,1)
             arm['val_net_file'] = build_net(arm,2)
             arm['test_net_file'] = build_net(arm,3)
@@ -182,33 +180,16 @@ class cifar10_conv(ModelInf):
             arm={}
             arm['dir']=dir+"/"+dirname
             arm['n_iter']=0
-            #before 1400
-            #arm['learning_rate']=5*10**random.uniform(-5,-1)
             hps=['learning_rate','weight_cost1','weight_cost2','weight_cost3','weight_cost4','scale','power','lr_step']
             for hp in hps:
                 val=params[hp].get_param_range(1,stochastic=True)
                 arm[hp]=val[0]
-            #arm['learning_rate']=5*10**random.uniform(-5,0)
-            #arm['weight_cost1']=5*10**random.uniform(-5,0)
-            #arm['weight_cost2']=5*10**random.uniform(-5,0)
-            #arm['weight_cost3']=5*10**random.uniform(-5,0)
-            #arm['weight_cost4']=5*10**random.uniform(-3,2)
-            #arm['size']=3
-            #arm['scale']=5*10**random.uniform(-6,0)
-            #before 2000
-            #arm['power']=random.uniform(0.25,5)
-            #int(10**random.uniform(2,4)/100)*100
-            #arm['power']=random.uniform(0.01,3)
+
             arm['batch_size']=100
-            #arm['lr_step']=int(random.uniform(1,6))*10000
             arm['init_std1']=0.0001
             arm['init_std2']=0.01
             arm['init_std3']=0.01
             arm['init_std4']=0.01
-            #arm['init_std1']=10**random.uniform(-6,-1)
-            #arm['init_std2']=10**random.uniform(-6,-1)
-            #arm['init_std3']=10**random.uniform(-6,-1)
-            #arm['init_std4']=10**random.uniform(-6,-1)
             arm['train_net_file'] = build_net(arm,1)
             arm['val_net_file'] = build_net(arm,2)
             arm['test_net_file'] = build_net(arm,3)
@@ -253,6 +234,7 @@ class cifar10_conv(ModelInf):
         val_acc=val_acc/batches
         test_acc=test_acc/batches
         return train_loss,val_acc, test_acc
+
 def get_cnn_search_space():
     params={}
     params['learning_rate']=Param('learning_rate',numpy.log(5*10**(-5)),numpy.log(5),distrib='uniform',scale='log')
@@ -270,15 +252,16 @@ def get_cnn_search_space():
 
     return params
 
+
 def main():
     data_dir=sys.argv[1]
     output_dir=sys.argv[2]
     #"/home/lisha/school/caffe/examples/cifar10"
     model= cifar10_conv(data_dir,device=0)
-    param=get_cnn_search_space()
+    param=get_cnn_search_space2()
     #"/home/lisha/school/Projects/hyperband_nnet/hyperband2/cifar10/default"
     arms = model.generate_arms(1,output_dir,param,True)
-    train_loss,val_acc, test_acc = model.run_solver('iter',1000,arms[0])
+    train_loss,val_acc, test_acc = model.run_solver('iter',100000,arms[0])
     print train_loss, val_acc, test_acc
 
 

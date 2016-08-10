@@ -7,7 +7,8 @@ from params import zoom_space
 from cifar10.cifar10_helper import cifar10_conv,get_cnn_search_space
 from svhn.svhn_helper import svhn_conv
 from mrbi.mrbi_helper import mrbi_conv
-
+from networkin.nin_helper import nin_conv,get_nin_search_space
+from mnist_svm.svm_helper import *
 
 
 class Logger(object):
@@ -19,57 +20,6 @@ class Logger(object):
         self.terminal.write(message)
         self.log.write(message)
         self.log.flush()
-
-
-def sha_inf(model,units,n,B):
-    arms = model.generate_arms(n,"/home/lisha/school/Projects/hyperband_nnet/hyperband2/cifar10/hyperband")
-    halvings = max(1,int(numpy.ceil(numpy.log2(n))))
-    remaining_arms=[list(a) for a in zip(arms.keys(),[0]*len(arms.keys()),[0]*len(arms.keys()),[0]*len(arms.keys()))]
-    for i in range(halvings):
-        n_arms = int(n/2**i)
-        b_arm = B/n_arms/halvings
-        print "sha n_arms and budget per arm:" +str(n_arms)+","+ str(b_arm)
-        for a in range(len(remaining_arms)):
-            arm_key=remaining_arms[a][0]
-            train_loss,val_acc, test_acc=model.run_solver(units,b_arm,arms[arm_key])
-            arms[arm_key]['results'].append([b_arm,train_loss,val_acc,test_acc])
-            remaining_arms[a][1]=train_loss
-            remaining_arms[a][2]=val_acc
-            remaining_arms[a][3]=test_acc
-        remaining_arms=sorted(remaining_arms,key=lambda a: -a[2])[0:max(1,int(numpy.ceil(n_arms/2)))]
-    best_arm=arms[remaining_arms[0][0]]
-    return arms,[best_arm,remaining_arms[0][1],remaining_arms[0][2],remaining_arms[0][2]]
-
-
-
-def hyperband_inf(model,runtime,units,min_unit=10):
-    # input t in minutes
-    t_0 = time.time()
-    print time.localtime(t_0)
-    def minutes(t):
-        return (t-t_0)/60.
-    k=0
-    best_acc=0
-    results_dict={}
-    time_test=[]
-    while minutes(time.time())< runtime:
-        print "time elapsed: "+ str(minutes(time.time()))
-        k+=1
-        l=0
-        B=2**k
-        while k-l >= numpy.log2(l) and minutes(time.time())< runtime:
-            n=2**l
-            if B/n/max(1,numpy.ceil(numpy.log2(n)))>min_unit:
-                arms,result = sha_inf(model,units, n,B)
-                results_dict[(k,l)]=arms
-                best_acc = max(best_acc,result[2])
-                print "k="+str(k)+", l="+str(l)+", best_acc="+str(best_acc)
-                time_test.append([minutes(time.time()),best_acc])
-            l+=1
-    print minutes(time.time())
-    print time.localtime(time.time())
-    pickle.dump([time_test,results_dict],open('/home/lisha/school/Projects/hyperband_nnet/hyperband2/cifar10/hyperband_2/results.pkl','w'))
-
 def hyperband_finite(model,runtime,units,dir,params,min_units,max_units,bounded=True, adaptive=True):
     # input t in minutes
     t_0 = time.time()
@@ -79,19 +29,22 @@ def hyperband_finite(model,runtime,units,dir,params,min_units,max_units,bounded=
     k=2
     results_dict={}
     time_test=[]
-    while minutes(time.time())< runtime:
+    while minutes(time.time())< runtime and k <4:
 
-        B = int((2**k)*max_units)
-        #B = 15*max_units
         eta = 4.
         def logeta(x):
             return numpy.log(x)/numpy.log(eta)
-        #B=(int(logeta(max_units/min_units))+1)*max_units
+        if bounded:
+            B=(int(logeta(max_units/min_units))+1)*max_units
+        else:
+            B = int((2**k)*max_units)
+        #B = 15*max_units
+
 
         k+=1
-        if bounded:
-            max_halvings = int(numpy.log(max_units/min_units)/numpy.log(eta))
-            k = min(numpy.ceil(numpy.log2(max_halvings+1)),k)
+        #if bounded:
+        #    max_halvings = int(numpy.log(max_units/min_units)/numpy.log(eta))
+        #    k = min(numpy.ceil(numpy.log2(max_halvings+1)),k)
         print "\nBudget B = %d" % B
         print '###################'
 
@@ -196,16 +149,26 @@ def main(argv):
     if not os.path.exists(dir):
         os.makedirs(dir)
     sys.stdout = Logger(dir)
-    params = get_cnn_search_space()
     if model=='cifar10':
+        params = get_cnn_search_space()
         obj=cifar10_conv(data_dir,device=device_id,seed=seed_id)
         hyperband_finite(obj,360,'iter',dir,params,100,30000)
     elif model=='svhn':
+        params = get_cnn_search_space()
         obj=svhn_conv(data_dir,device=device_id,seed=seed_id)
         hyperband_finite(obj,720,'iter',dir,params,100,60000)
     elif model=='mrbi':
+        params = get_cnn_search_space()
         obj=mrbi_conv(data_dir,device=device_id,seed=seed_id)
         hyperband_finite(obj,360,'iter',dir,params,100,30000)
+    elif model=='cifar100':
+        params = get_nin_search_space()
+        obj=nin_conv("cifar100",data_dir,device_id,seed_id)
+        hyperband_finite(obj,2000,'iter',dir,params,100,60000)
+    elif model=='mnist_svm':
+        params= get_svm_search()
+        obj=svm_model('mnist_svm',data_dir,seed_id)
+        hyperband_finite(obj,24*60,'iter',dir,params,100,40000)
 
 
 if __name__ == "__main__":
