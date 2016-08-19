@@ -118,8 +118,11 @@ class svm_model(ModelInf):
 
         # Validate this hyperparameter configuration on the full validation data
         y_loss = 1 - clf.score(self.data['X_train'], self.data['y_train'])
+        #y_loss=1
+        test_acc=0
         val_acc= clf.score(self.data['X_val'], self.data['y_val'])
-        test_acc = clf.score(self.data['X_test'], self.data['y_test'])
+        if n_units==s_max:
+            test_acc = clf.score(self.data['X_test'], self.data['y_test'])
 
 
         return y_loss,val_acc,test_acc

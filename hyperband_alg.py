@@ -170,7 +170,7 @@ def main(argv):
         from mnist_svm.svm_helper import get_svm_search,svm_model
         params= get_svm_search()
         obj=svm_model('mnist_svm',data_dir,seed_id)
-        hyperband_finite(obj,24*60,'iter',dir,params,100,40000)
+        hyperband_finite(obj,24*60,'iter',dir,params,100,len(obj.data['y_train']))
 
 
 if __name__ == "__main__":

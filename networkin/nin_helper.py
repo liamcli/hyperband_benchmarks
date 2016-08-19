@@ -177,20 +177,12 @@ class nin_conv(ModelInf):
                 os.makedirs(dirname)
             arm['dir']=dir+"/"+dirname
             arm['n_iter']=0
-            arm['momentum']=0.9
-            arm['learning_rate1']=0.1
-            arm['learning_rate2']=0.1
-            arm['learning_rate3']=0.01
-            arm['weight_cost1']=0.0001
-            arm['weight_cost2']=0.0001
-            arm['weight_cost3']=0.0001
             arm['batch_size']=100
-            arm['lr_step']=1
-            arm['dropout1']=0.5
-            arm['dropout2']=0.5
-            arm['w_init1']=0.05
-            arm['w_init2']=0.05
-            arm['w_init3']=0.05
+            hps=['momentum','learning_rate1','learning_rate2','learning_rate3',
+                'weight_cost1','weight_cost2','weight_cost3',
+                'dropout1','dropout2','w_init1','w_init2','w_init3','lr_step']
+            for p in hps:
+                arm[p]=params[p]
             arm['train_net_file'] = build_net(arm,1)
             arm['val_net_file'] = build_net(arm,2)
             arm['test_net_file'] = build_net(arm,3)
