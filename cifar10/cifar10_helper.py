@@ -258,7 +258,7 @@ def main():
     output_dir=sys.argv[2]
     #"/home/lisha/school/caffe/examples/cifar10"
     model= cifar10_conv(data_dir,device=0)
-    param=get_cnn_search_space2()
+    param=get_cnn_search_space()
     #"/home/lisha/school/Projects/hyperband_nnet/hyperband2/cifar10/default"
     arms = model.generate_arms(1,output_dir,param,True)
     train_loss,val_acc, test_acc = model.run_solver('iter',100000,arms[0])

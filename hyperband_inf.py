@@ -24,7 +24,7 @@ def sha_inf(model,units,n,B):
 
 
 
-def hyperband_inf(model,runtime,units,min_unit=10):
+def hyperband_inf(model,runtime,units,min_unit=100):
     # input t in minutes
     t_0 = time.time()
     print time.localtime(t_0)

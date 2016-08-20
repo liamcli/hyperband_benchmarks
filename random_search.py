@@ -82,10 +82,10 @@ def main(argv):
         params = get_nin_search_space()
         obj=nin_conv("cifar100",data_dir,device_id,seed_id)
         random_search(obj,2000,'iter',dir,params,60000)
-    elif model=='mnist_svm':
-        from mnist_svm.svm_helper import get_svm_search,svm_model
+    elif model=='svm':
+        from svm.svm_helper import get_svm_search,svm_model
         params= get_svm_search()
-        obj=svm_model('mnist_svm',data_dir,seed_id)
+        obj=svm_model('svm',data_dir,seed_id)
         random_search(obj,24*60,'iter',dir,params,40000)
 
 

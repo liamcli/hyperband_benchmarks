@@ -167,11 +167,15 @@ def main(argv):
         obj=nin_conv("cifar100",data_dir,device_id,seed_id)
         hyperband_finite(obj,2000,'iter',dir,params,100,60000)
     elif model=='mnist_svm':
-        from mnist_svm.svm_helper import get_svm_search,svm_model
+        from svm.svm_helper import get_svm_search,svm_model
         params= get_svm_search()
-        obj=svm_model('mnist_svm',data_dir,seed_id)
+        obj=svm_model('mnist',data_dir,seed_id)
         hyperband_finite(obj,24*60,'iter',dir,params,100,len(obj.data['y_train']))
-
+    elif model=='cifar10_svm':
+        from svm.svm_helper import get_svm_search,svm_model
+        params= get_svm_search()
+        obj=svm_model('cifar10',data_dir,seed_id)
+        hyperband_finite(obj,24*60,'iter',dir,params,100,len(obj.data['y_train']))
 
 if __name__ == "__main__":
     main(sys.argv[1:])
