@@ -23,10 +23,13 @@ class cifar10_conv(ModelInf):
         caffe.set_device(device)
         caffe.set_mode_gpu()
         self.device=device
+        self.max_iter=30000
         numpy.random.seed(seed)
 
 
-    def generate_arms(self,n,dir, params,default=False):
+    def generate_arms(self,n,dir, params,default=False,max_iter=None):
+        if max_iter is not None:
+            self.max_iter=max_iter
         def build_net(arm, split=0):
             def conv_layer(bottom, ks=5, nout=32, stride=1, pad=2, param=learned_param,
                           weight_filler=dict(type='gaussian', std=0.0001),
@@ -113,7 +116,7 @@ class cifar10_conv(ModelInf):
             # every `stepsize` iterations.
             s.lr_policy = 'step'
             s.gamma = 0.1
-            s.stepsize = int(30000/arm['lr_step'])
+            s.stepsize = int(self.max_iter/arm['lr_step'])
 
             # Set other SGD hyperparameters. Setting a non-zero `momentum` takes a
             # weighted average of the current gradient and previous gradients to make

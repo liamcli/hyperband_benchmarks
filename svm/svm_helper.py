@@ -5,7 +5,7 @@ from params import Param
 from sklearn import svm,preprocessing
 from model_def import ModelInf
 
-def load_dataset(data_name,data_dir):
+def create_dataset(data_name,data_dir,combine=False):
     # This function loads the MNIST data, its copied from the Lasagne tutorial
     # We first define a download function, supporting both Python 2 and 3.
     if data_name=='mnist':
@@ -67,20 +67,18 @@ def load_dataset(data_name,data_dir):
             else:
                 X_train=np.concatenate((X_train,np.array(batch['data'],dtype=np.float32)))
                 y_train=np.concatenate((y_train,np.array(batch['labels'])))
-        X_train=preprocessing.normalize(X_train)
         batch=pickle.load(open(data_dir+'/cifar-10-batches-py/data_batch_5','rb'))
         X_val=np.array(batch['data'],dtype=np.float32)
-        X_val=preprocessing.normalize(X_val)
         y_val=np.array(batch['labels'])
         batch=pickle.load(open(data_dir+'/cifar-10-batches-py/test_batch','rb'))
         X_test=np.array(batch['data'],dtype=np.float32)
-        X_test=preprocessing.normalize(X_test)
         y_test=np.array(batch['labels'])
+        if combine:
+            X_train=np.concatenate((X_val,X_train))
+            y_train=np.concatenate((y_val,y_train))
 
 
 
-    # We just return all the arrays in order, as expected in main().
-    # (It doesn't matter how we do this as long as we can read them again.)
     data={}
     data['X_train']=X_train
     data['X_test']=X_test
@@ -88,6 +86,7 @@ def load_dataset(data_name,data_dir):
     data['y_train']=y_train
     data['y_test']=y_test
     data['y_val']=y_val
+
     return data
 
 
@@ -96,12 +95,15 @@ def load_dataset(data_name,data_dir):
 # and s which is the ratio of the training data that is used to
 # evaluate this configuration
 class svm_model(ModelInf):
-    def __init__(self,name, data_dir, seed):
+    def __init__(self,name, data_dir, seed,combine=False):
         self.data_dir=data_dir
         os.chdir(data_dir)
-        self.name="cifar10_conv"
-        self.data=load_dataset(name,data_dir)
+        self.name=name
+        self.data=None
+        self.orig_data=create_dataset(name,data_dir,combine)
         np.random.seed(seed)
+
+
     def generate_arms(self,n,dir, params):
         os.chdir(dir)
         arms={}
@@ -122,9 +124,28 @@ class svm_model(ModelInf):
             arm['results']=[]
             arms[i]=arm
         return arms
-
+    def compute_preprocessor(self,method):
+        self.data={}
+        if method=='min_max':
+            transform=preprocessing.MinMaxScaler()
+            self.data['X_train']=transform.fit_transform(self.orig_data['X_train'])
+            self.data['X_val']=transform.transform(self.orig_data['X_val'])
+            self.data['X_test']=transform.transform(self.orig_data['X_test'])
+        elif method=='scaled':
+            self.data['X_train']=preprocessing.scale(self.orig_data['X_train'])
+            self.data['X_val']=preprocessing.scale(self.orig_data['X_val'])
+            self.data['X_test']=preprocessing.scale(self.orig_data['X_test'])
+        elif method=='normalized':
+            self.data['X_train']=preprocessing.normalize(self.orig_data['X_train'])
+            self.data['X_val']=preprocessing.normalize(self.orig_data['X_val'])
+            self.data['X_test']=preprocessing.normalize(self.orig_data['X_test'])
+        self.data['y_train']=self.orig_data['y_train']
+        self.data['y_val']=self.orig_data['y_val']
+        self.data['y_test']=self.orig_data['y_test']
     def run_solver(self, unit, n_units, arm):
-        kernel_map=dict(zip([1,2,3,4],['linear','rbf','poly','sigmoid']))
+        kernel_map=dict(zip([1,2,3],['rbf','poly','sigmoid']))
+        preprocess_map=dict(zip([1,2,3],['min_max','scaled','normalized']))
+        self.compute_preprocessor(preprocess_map[arm['preprocessor']])
         print arm
         # Shuffle the data and split up the request subset of the training data
         size = int(n_units)
@@ -132,7 +153,6 @@ class svm_model(ModelInf):
         shuffle = np.random.permutation(np.arange(s_max))
         train_subset = self.data['X_train'][shuffle[:size]]
         train_targets_subset = self.data['y_train'][shuffle[:size]]
-
         # Train the SVM on the subset set
         clf = svm.SVC(C=arm['C'], kernel=kernel_map[arm['kernel']], gamma=arm['gamma'], coef0=arm['coef0'], degree=arm['degree'])
         clf.fit(train_subset, train_targets_subset)
@@ -150,11 +170,26 @@ class svm_model(ModelInf):
 
 def get_svm_search():
     params = {}
-    params['C']=Param('C',-5.0,5.0,distrib='uniform',scale='log',logbase=10.0)
-    params['gamma']=Param('gamma',-5.0,5.0,distrib='uniform',scale='log',logbase=10.0)
-    params['kernel']=Param('kernel',1,5,distrib='uniform',scale='linear',interval=1)
+    params['C']=Param('C',-3.0,5.0,distrib='uniform',scale='log',logbase=10.0)
+    params['gamma']=Param('gamma',-5.0,1.0,distrib='uniform',scale='log',logbase=10.0)
+    params['kernel']=Param('kernel',1,4,distrib='uniform',scale='linear',interval=1)
+    params['preprocessor']=Param('kernel',1,4,distrib='uniform',scale='linear',interval=1)
     params['coef0']=Param('coef0',-1.0,1.0,distrib='uniform',scale='linear')
-    params['degree']=Param('degree',1,6,distrib='uniform',scale='linear',interval=1)
+    params['degree']=Param('degree',2,6,distrib='uniform',scale='linear',interval=1)
 
     return params
-
+def main():
+    data_dir="/home/lisha/school/Projects/hyperband_nnet/hyperband2/svm/cifar10"
+    model=svm_model("cifar10",data_dir,2000,True)
+    arm={}
+    arm['dir']=data_dir+"/hyperband_constant/trial2000/default_arm"
+    arm['kernel']=2
+    arm['C']=24.69483
+    arm['degree']=2
+    arm['coef0']=0.29041
+    arm['gamma']=7.163622
+    arm['results']=[]
+    train_loss,val_acc,test_acc=model.run_solver('iter',50000,arm)
+    print train_loss, test_acc
+if __name__ == "__main__":
+    main()
