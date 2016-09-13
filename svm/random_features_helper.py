@@ -2,62 +2,10 @@ import os
 import sys
 import numpy as np
 from params import Param
-from sklearn import svm,preprocessing
+from sklearn import linear_model,preprocessing,kernel_approximation
 from model_def import ModelInf
-import math
-import scipy
-import sklearn.metrics as metrics
-
-def block_kernel_solve(K, y, numiter=1, block_size=4000,num_classes=10, epochs=1, lambdav=0.1, verbose=True):
-        '''Solve (K + \lambdaI)x = y
-            in a block-wise fashion
-        '''
-
-        # compute some constants
-        num_samples = K.shape[0]
-        num_blocks = math.ceil(num_samples*1.0/block_size)
-        x = np.zeros((K.shape[0], num_classes))
-        y_hat = np.zeros((K.shape[0], num_classes))
-        onehot = lambda x: np.eye(num_classes)[x]
-        y_onehot = np.array(map(onehot, y))
-        loss = 0
-        print num_blocks
-        idxes = np.diag_indices(num_samples)
-        K[idxes] += lambdav
-        for e in range(epochs):
-                shuffled_coords = np.random.choice(num_samples, num_samples, replace=False)
-                for b in range(int(num_blocks)):
-                        # pick a block
-                        block = shuffled_coords[b*block_size:min((b+1)*block_size, num_samples)]
-
-                        # pick a subset of the kernel matrix (note K can be mmap-ed)
-                        K_block = K[:, block]
-
-                        # This is a matrix vector multiply very efficient can be parallelized
-                        # (even if K is mmaped)
-
-                        # calculate
-                        residuals = y_onehot - y_hat
-
-
-                        # should be block size x block size
-                        KbTKb = K_block.T.dot(K_block)
-
-                        print("solving block {0}".format(b))
-                        x_block = scipy.linalg.solve(KbTKb, K_block.T.dot(residuals))
-
-                        # update model
-                        x[block] = x_block
-
-                        y_hat = K.dot(x)
-
-                        y_pred = np.argmax(y_hat, axis=1)
-                        train_acc = metrics.accuracy_score(y, y_pred)
-                        if (verbose):
-                                print "Epoch: {0}, Block: {2}, Loss: {3}, Train Accuracy: {1}".format(e, train_acc, b, loss)
-
-        K[idxes] -= lambdav
-        return x
+import time
+import gc
 
 def create_dataset(data_name,data_dir,combine=False):
     # This function loads the MNIST data, its copied from the Lasagne tutorial
@@ -148,7 +96,7 @@ def create_dataset(data_name,data_dir,combine=False):
 # It gets a numpy array x with shape (1,D) where D are the number of parameters
 # and s which is the ratio of the training data that is used to
 # evaluate this configuration
-class svm_model(ModelInf):
+class random_features_model(ModelInf):
     def __init__(self,name, data_dir, seed,combine=False):
         self.data_dir=data_dir
         os.chdir(data_dir)
@@ -158,7 +106,7 @@ class svm_model(ModelInf):
         np.random.seed(seed)
 
 
-    def generate_arms(self,n,dir, params):
+    def generate_arms(self,n,dir, params,max_iter=None):
         os.chdir(dir)
         arms={}
         subdirs=next(os.walk('.'))[1]
@@ -180,7 +128,9 @@ class svm_model(ModelInf):
         return arms
     def compute_preprocessor(self,method):
         self.data={}
-        if method=='min_max':
+        if method=='none':
+            self.data=self.orig_data
+        elif method=='min_max':
             transform=preprocessing.MinMaxScaler()
             self.data['X_train']=transform.fit_transform(self.orig_data['X_train'])
             self.data['X_val']=transform.transform(self.orig_data['X_val'])
@@ -196,43 +146,32 @@ class svm_model(ModelInf):
         self.data['y_train']=self.orig_data['y_train']
         self.data['y_val']=self.orig_data['y_val']
         self.data['y_test']=self.orig_data['y_test']
-    def run_solver(self, unit, n_units, arm,type='lsqr'):
-        kernel_map=dict(zip([1,2,3],['rbf','poly','sigmoid']))
-        preprocess_map=dict(zip([1,2,3],['min_max','scaled','normalized']))
+    def run_solver(self, unit, n_units, arm):
+        start_time=time.time()
+        #kernel_map=dict(zip([1,2,3],['rbf','poly','sigmoid']))
+        preprocess_map=dict(zip([1,2,3,4],['none','min_max','scaled','normalized']))
         self.compute_preprocessor(preprocess_map[arm['preprocessor']])
         print arm
-        # Shuffle the data and split up the request subset of the training data
-        size = int(n_units)
-        s_max = self.data['y_train'].shape[0]
-        shuffle = np.random.permutation(np.arange(s_max))
-        train_subset = self.data['X_train'][shuffle[:size]]
-        train_targets_subset = self.data['y_train'][shuffle[:size]]
-        # Train the SVM on the subset set
-        if type=='SVM':
-            clf = svm.SVC(C=arm['C'], kernel=kernel_map[arm['kernel']], gamma=arm['gamma'], coef0=arm['coef0'], degree=arm['degree'])
-            clf.fit(train_subset, train_targets_subset)
+        # Create random features
+        features=kernel_approximation.RBFSampler(gamma=arm['gamma'],n_components=n_units, random_state=1)
+        train_features=features.fit_transform(self.data['X_train'])
+        val_features=features.transform(self.data['X_val'])
+        test_features=features.transform(self.data['X_test'])
+        approx_time=(time.time()-start_time)/60.0
+        print 'approximating kernel took %r' % approx_time
 
-            # Validate this hyperparameter configuration on the full validation data
-            #y_loss = 1 - clf.score(self.data['X_train'], self.data['y_train'])
-            y_loss=1
-            test_acc=0
-            val_acc= clf.score(self.data['X_val'], self.data['y_val'])
-            if n_units==s_max:
-                test_acc = clf.score(self.data['X_test'], self.data['y_test'])
-        else:
-            K=metrics.pairwise.pairwise_kernels(train_subset,metric=kernel_map[arm['kernel']], gamma=arm['gamma'])
-            x=block_kernel_solve(K,train_targets_subset,lambdav=1/arm['C']*(n_units))
-            y_loss=1
-            test_acc=0
-            val_kernel=metrics.pairwise.pairwise_kernels(self.data['X_val'],train_subset,metric=kernel_map[arm['kernel']], gamma=arm['gamma'])
-            y_pred=np.argmax(val_kernel.dot(x),axis=1)
-            val_acc=metrics.accuracy_score(y_pred,self.data['y_val'])
-            if n_units==s_max:
-                test_kernel=metrics.pairwise.pairwise_kernels(self.data['X_test'],train_subset,metric=kernel_map[arm['kernel']], gamma=arm['gamma'])
-                y_pred=np.argmax(test_kernel.dot(x),axis=1)
-                test_acc=metrics.accuracy_score(y_pred,self.data['y_test'])
-
-
+        clf = linear_model.RidgeClassifier(alpha=1.0/(arm['C']*n_units),solver='lsqr',copy_X=False)
+        clf.fit(train_features, self.data['y_train'])
+        print 'fitting model took %r' % ((time.time()-start_time)/60.0 - approx_time)
+        # Validate this hyperparameter configuration on the full validation data
+        #y_loss = 1 - clf.score(self.data['X_train'], self.data['y_train'])
+        y_loss=1
+        test_acc=0
+        val_acc= clf.score(val_features, self.data['y_val'])
+        test_acc = clf.score(test_features, self.data['y_test'])
+        del self.data
+        del train_features, val_features, test_features
+        gc.collect()
 
         return y_loss,val_acc,test_acc
 
@@ -240,25 +179,19 @@ def get_svm_search():
     params = {}
     params['C']=Param('C',-3.0,5.0,distrib='uniform',scale='log',logbase=10.0)
     params['gamma']=Param('gamma',-5.0,1.0,distrib='uniform',scale='log',logbase=10.0)
-    params['kernel']=Param('kernel',1,2,distrib='uniform',scale='linear',interval=1)
-    params['preprocessor']=Param('kernel',1,4,distrib='uniform',scale='linear',interval=1)
-    params['coef0']=Param('coef0',-1.0,1.0,distrib='uniform',scale='linear')
-    params['degree']=Param('degree',2,6,distrib='uniform',scale='linear',interval=1)
+    params['preprocessor']=Param('kernel',1,5,distrib='uniform',scale='linear',interval=1)
 
     return params
 def main():
     data_dir="/home/lisha/school/Projects/hyperband_nnet/hyperband2/svm/cifar10"
-    model=svm_model("cifar10",data_dir,2000,False)
+    model=random_features_model("cifar10",data_dir,4000,True)
     arm={}
-    arm['dir']=data_dir+"/hyperband_constant/trial2000/default_arm"
-    arm['kernel']=1
-    arm['C']=6296.5862020382683
-    arm['degree']=2
-    arm['coef0']=0.29041
-    arm['gamma']=5.0438294538979234
+    arm['dir']=data_dir+"/hyperband_constant/trial1002/default_arm"
     arm['preprocessor']=3
+    arm['C']=0.0011215088169
+    arm['gamma']=0.0001644725
     arm['results']=[]
-    train_loss,val_acc,test_acc=model.run_solver('iter',40000,arm,type='lsqr')
+    train_loss,val_acc,test_acc=model.run_solver('iter',10000,arm)
     print train_loss, test_acc
 if __name__ == "__main__":
     main()

@@ -274,7 +274,7 @@ def get_nin_search_space():
     params['w_init1']=Param('w_init1',numpy.log(10**(-2)),0.0,distrib='uniform',scale='log')
     params['w_init2']=Param('w_init2',numpy.log(10**(-2)),0.0,distrib='uniform',scale='log')
     params['w_init3']=Param('w_init3',numpy.log(10**(-2)),0.0,distrib='uniform',scale='log')
-    params['lr_step']=Param('lr_step',1,3,distrib='uniform',scale='linear',interval=1)
+    params['lr_step']=Param('lr_step',1,4,distrib='uniform',scale='linear',interval=1)
     return params
 
 def main():

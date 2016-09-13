@@ -165,7 +165,7 @@ def main(argv):
         from networkin.nin_helper import get_nin_search_space,nin_conv
         params = get_nin_search_space()
         obj=nin_conv("cifar100",data_dir,device_id,seed_id)
-        hyperband_finite(obj,2000,'iter',dir,params,100,60000)
+        hyperband_finite(obj,24*60,'iter',dir,params,100,60000)
     elif model=='mnist_svm':
         from svm.svm_helper import get_svm_search,svm_model
         params= get_svm_search()

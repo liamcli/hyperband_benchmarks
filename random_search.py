@@ -28,6 +28,7 @@ def random_search(model,runtime,units,dir,params,max_units):
         arm = model.generate_arms(1,dir,params)
         train_loss,val_acc,test_acc=model.run_solver(units, max_units,arm[0])
         run_time=(time.time()-start_time)/60.0
+        print train_loss, val_acc, test_acc, run_time
         results.append([train_loss,val_acc,test_acc,run_time])
     pickle.dump(results,open('results.pkl','wb'))
 
@@ -53,6 +54,8 @@ def main(argv):
             data_dir = arg
         elif opt in ("-o", "--output_dir"):
             output_dir = arg
+        elif opt in ("-R", "--max_iter"):
+            max_units = int(arg)
         elif opt in ("-s", "--seed"):
             seed_id = int(arg)
         elif opt in ("-d", "--device"):
@@ -87,7 +90,11 @@ def main(argv):
         params= get_svm_search()
         obj=svm_model('svm',data_dir,seed_id)
         random_search(obj,24*60,'iter',dir,params,40000)
-
+    elif model=='cifar10_random_features':
+        from svm.random_features_helper import get_svm_search,random_features_model
+        params = get_svm_search()
+        obj=random_features_model('cifar10',data_dir,seed=seed_id)
+        random_search(obj,24*10,'iters',dir,params,max_units)
 
 if __name__ == "__main__":
     main(sys.argv[1:])
