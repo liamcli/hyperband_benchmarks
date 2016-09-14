@@ -40,9 +40,9 @@ def main(argv):
     seed_id=0
     device_id=0
     try:
-        opts, args = getopt.getopt(argv,"hm:i:o:s:d:",['model=','input_dir=','output_dir=','seed=','device='])
+        opts, args = getopt.getopt(argv,"hm:i:o:R:s:d:",['model=','input_dir=','output_dir=','max_iter=','seed=','device='])
     except getopt.GetoptError:
-        print 'random_search.py -m <model> -i <data_dir> -o <output_dir> -s <rng_seed> -d <GPU_id>'
+        print 'random_search.py -m <model> -i <data_dir> -o <output_dir> -R <max_iter> -s <rng_seed> -d <GPU_id>'
         sys.exit(2)
     for opt, arg in opts:
         if opt == '-h':

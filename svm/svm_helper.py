@@ -204,7 +204,7 @@ class svm_model(ModelInf):
         self.data['y_train']=self.orig_data['y_train']
         self.data['y_val']=self.orig_data['y_val']
         self.data['y_test']=self.orig_data['y_test']
-    def run_solver(self, unit, n_units, arm,type='lsqr'):
+    def run_solver(self, unit, n_units, arm,solver_type='lsqr'):
         kernel_map=dict(zip([1,2,3],['rbf','poly','sigmoid']))
         preprocess_map=dict(zip([1,2,3],['min_max','scaled','normalized']))
         self.compute_preprocessor(preprocess_map[arm['preprocessor']])
@@ -216,7 +216,7 @@ class svm_model(ModelInf):
         train_subset = self.data['X_train'][shuffle[:size]]
         train_targets_subset = self.data['y_train'][shuffle[:size]]
         # Train the SVM on the subset set
-        if type=='SVM':
+        if solver_type=='SVM':
             clf = svm.SVC(C=arm['C'], kernel=kernel_map[arm['kernel']], gamma=arm['gamma'], coef0=arm['coef0'], degree=arm['degree'])
             clf.fit(train_subset, train_targets_subset)
 
@@ -282,7 +282,7 @@ def main():
     arm['gamma']=0.006859435
     arm['preprocessor']=1
     arm['results']=[]
-    train_loss,val_acc,test_acc=model.run_solver('iter',50000,arm,type='lsqr')
+    train_loss,val_acc,test_acc=model.run_solver('iter',50000,arm,solver_type='lsqr')
     print train_loss, test_acc
 if __name__ == "__main__":
     main()

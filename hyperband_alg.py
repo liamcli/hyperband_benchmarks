@@ -175,7 +175,7 @@ def main(argv):
         from svm.svm_helper import get_svm_search,svm_model
         params= get_svm_search()
         obj=svm_model('cifar10',data_dir,seed_id)
-        hyperband_finite(obj,24*60,'iter',dir,params,100,len(obj.orig_data['y_train']))
+        hyperband_finite(obj,12*60,'iter',dir,params,100,len(obj.orig_data['y_train']))
 
 if __name__ == "__main__":
     main(sys.argv[1:])
