@@ -16,16 +16,16 @@ class Logger(object):
         self.terminal.write(message)
         self.log.write(message)
         self.log.flush()
-def hyperband_finite(model,runtime,units,dir,params,min_units,max_units,bounded=True, adaptive=False):
+def hyperband_finite(model,runtime,units,dir,params,min_units,max_units,max_k=2,bounded=True, adaptive=False):
     # input t in minutes
     t_0 = time.time()
     print time.localtime(t_0)
     def minutes(t):
         return (t-t_0)/60.
-    k=2
+    k=0
     results_dict={}
     time_test=[]
-    while minutes(time.time())< runtime and k <4:
+    while minutes(time.time())< runtime and k <max_k:
 
         eta = 4.
         def logeta(x):

@@ -44,7 +44,7 @@ def sha_inf(model,params,units,dir,n,B,eta=2,calculate=True):
         return None, None
 
 
-def hyperband_inf(model,runtime,units,dir,params,eta,starting_b=1,min_unit=1,min_arms=64,max_unit=None,calculate=True):
+def hyperband_inf(model,runtime,units,dir,params,eta,max_k=3, starting_b=1,min_unit=1,min_arms=64,max_unit=None,calculate=True):
     # input t in minutes
     t_0 = time.time()
     print time.localtime(t_0)
@@ -56,7 +56,7 @@ def hyperband_inf(model,runtime,units,dir,params,eta,starting_b=1,min_unit=1,min
     best_acc=0
     results_dict={}
     time_test=[]
-    while minutes(time.time())< runtime and k <3:
+    while minutes(time.time())< runtime and k <max_k:
         l=0
         B=starting_b*2**k
         while int(log_eta(B))-l > log_eta(l):
@@ -116,12 +116,12 @@ def main(argv):
         from cifar10.cifar10_helper import get_cnn_search_space,cifar10_conv
         params = get_cnn_search_space()
         obj=cifar10_conv(data_dir,device=device_id,seed=seed_id)
-        hyperband_inf(obj,720,'iter',dir,params,4,starting_b=60000,min_unit=100,min_arms=4,calculate=True)
+        hyperband_inf(obj,720,'iter',dir,params,4,max_k=3,starting_b=60000,min_unit=100,min_arms=4,calculate=True)
     if model=='cifar10_random_features':
         from svm.random_features_helper import get_svm_search,random_features_model
         params = get_svm_search()
         obj=random_features_model('cifar10',data_dir,seed=seed_id)
-        hyperband_inf(obj,720,'iter',dir,params,4,starting_b=60000,min_unit=100,min_arms=4,max_unit=200000,calculate=True)
+        hyperband_inf(obj,720,'iter',dir,params,4,max_k=4,starting_b=60000,min_unit=100,min_arms=4,max_unit=200000,calculate=True)
 
 if __name__=="__main__":
     main(sys.argv[1:])
