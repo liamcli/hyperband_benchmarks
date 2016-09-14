@@ -94,7 +94,7 @@ def main(argv):
         from svm.random_features_helper import get_svm_search,random_features_model
         params = get_svm_search()
         obj=random_features_model('cifar10',data_dir,seed=seed_id)
-        random_search(obj,24*10,'iters',dir,params,max_units)
+        random_search(obj,12*60,'iters',dir,params,max_units)
 
 if __name__ == "__main__":
     main(sys.argv[1:])

@@ -2,7 +2,7 @@ import os
 import sys
 import numpy as np
 from params import Param
-from sklearn import svm,preprocessing
+from sklearn import svm,preprocessing,cross_validation
 from model_def import ModelInf
 import math
 import scipy
@@ -212,9 +212,11 @@ class svm_model(ModelInf):
         # Shuffle the data and split up the request subset of the training data
         size = int(n_units)
         s_max = self.data['y_train'].shape[0]
-        shuffle = np.random.permutation(np.arange(s_max))
-        train_subset = self.data['X_train'][shuffle[:size]]
-        train_targets_subset = self.data['y_train'][shuffle[:size]]
+        shuffle = cross_validation.StratifiedShuffleSplit(self.data['y_train'],3,test_size=n_units,random_state=0)
+        for train_index, test_index in shuffle:
+            train_subset = self.data['X_train'][test_index]
+            train_targets_subset = self.data['y_train'][test_index]
+
         # Train the SVM on the subset set
         if solver_type=='SVM':
             clf = svm.SVC(C=arm['C'], kernel=kernel_map[arm['kernel']], gamma=arm['gamma'], coef0=arm['coef0'], degree=arm['degree'])
