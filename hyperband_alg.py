@@ -16,7 +16,7 @@ class Logger(object):
         self.terminal.write(message)
         self.log.write(message)
         self.log.flush()
-def hyperband_finite(model,runtime,units,dir,params,min_units,max_units,bounded=True, adaptive=True):
+def hyperband_finite(model,runtime,units,dir,params,min_units,max_units,bounded=True, adaptive=False):
     # input t in minutes
     t_0 = time.time()
     print time.localtime(t_0)

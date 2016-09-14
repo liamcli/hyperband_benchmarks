@@ -56,7 +56,7 @@ def hyperband_inf(model,runtime,units,dir,params,eta,starting_b=1,min_unit=1,min
     best_acc=0
     results_dict={}
     time_test=[]
-    while minutes(time.time())< runtime and k <4:
+    while minutes(time.time())< runtime and k <3:
         l=0
         B=starting_b*2**k
         while int(log_eta(B))-l > log_eta(l):
@@ -121,7 +121,7 @@ def main(argv):
         from svm.random_features_helper import get_svm_search,random_features_model
         params = get_svm_search()
         obj=random_features_model('cifar10',data_dir,seed=seed_id)
-        hyperband_inf(obj,720,'iter',dir,params,4,starting_b=60000,min_unit=100,min_arms=4,max_unit=200000,calculate=False)
+        hyperband_inf(obj,720,'iter',dir,params,4,starting_b=60000,min_unit=100,min_arms=4,max_unit=200000,calculate=True)
 
 if __name__=="__main__":
     main(sys.argv[1:])

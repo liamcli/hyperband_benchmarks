@@ -7,8 +7,9 @@ from model_def import ModelInf
 import math
 import scipy
 import sklearn.metrics as metrics
+import gc
 
-def block_kernel_solve(K, y, numiter=1, block_size=4000,num_classes=10, epochs=1, lambdav=0.1, verbose=True):
+def block_kernel_solve(K, y, numiter=1, block_size=4000,num_classes=10, epochs=3, lambdav=0.1, verbose=True,val_K=None,val_y=None):
         '''Solve (K + \lambdaI)x = y
             in a block-wise fashion
         '''
@@ -23,11 +24,14 @@ def block_kernel_solve(K, y, numiter=1, block_size=4000,num_classes=10, epochs=1
         loss = 0
         print num_blocks
         idxes = np.diag_indices(num_samples)
-        K[idxes] += lambdav
+        if num_blocks==1:
+            epochs=1
+
         for e in range(epochs):
                 shuffled_coords = np.random.choice(num_samples, num_samples, replace=False)
                 for b in range(int(num_blocks)):
                         # pick a block
+                        K[idxes] += lambdav
                         block = shuffled_coords[b*block_size:min((b+1)*block_size, num_samples)]
 
                         # pick a subset of the kernel matrix (note K can be mmap-ed)
@@ -47,16 +51,20 @@ def block_kernel_solve(K, y, numiter=1, block_size=4000,num_classes=10, epochs=1
                         x_block = scipy.linalg.solve(KbTKb, K_block.T.dot(residuals))
 
                         # update model
-                        x[block] = x_block
-
+                        x[block] = x[block]+x_block
+                        K[idxes] -= lambdav
                         y_hat = K.dot(x)
 
                         y_pred = np.argmax(y_hat, axis=1)
                         train_acc = metrics.accuracy_score(y, y_pred)
                         if (verbose):
                                 print "Epoch: {0}, Block: {2}, Loss: {3}, Train Accuracy: {1}".format(e, train_acc, b, loss)
-
-        K[idxes] -= lambdav
+                if val_K is not None:
+                    val_hat = val_K.dot(x)
+                    val_pred = np.argmax(val_hat, axis=1)
+                    val_acc = metrics.accuracy_score(val_y, val_pred)
+                    if (verbose):
+                            print "Epoch: {0}, Val Accuracy: {1}".format(e, val_acc)
         return x
 
 def create_dataset(data_name,data_dir,combine=False):
@@ -220,19 +228,35 @@ class svm_model(ModelInf):
             if n_units==s_max:
                 test_acc = clf.score(self.data['X_test'], self.data['y_test'])
         else:
-            K=metrics.pairwise.pairwise_kernels(train_subset,metric=kernel_map[arm['kernel']], gamma=arm['gamma'])
+            kernel_type=kernel_map[arm['kernel']]
+            if kernel_type=='rbf':
+                K=metrics.pairwise.pairwise_kernels(train_subset,metric=kernel_map[arm['kernel']], gamma=arm['gamma'])
+                val_kernel=metrics.pairwise.pairwise_kernels(self.data['X_val'],train_subset,metric=kernel_map[arm['kernel']], gamma=arm['gamma'])
+                if n_units==s_max:
+                    test_kernel=metrics.pairwise.pairwise_kernels(self.data['X_test'],train_subset,metric=kernel_map[arm['kernel']], gamma=arm['gamma'])
+            elif kernel_type=='poly':
+                K=metrics.pairwise.pairwise_kernels(train_subset,metric=kernel_map[arm['kernel']], gamma=arm['gamma'],degree=arm['degree'],coef0=arm['coef0'])
+                val_kernel=metrics.pairwise.pairwise_kernels(self.data['X_val'],train_subset,metric=kernel_map[arm['kernel']], gamma=arm['gamma'],degree=arm['degree'],coef0=arm['coef0'])
+                if n_units==s_max:
+                    test_kernel=metrics.pairwise.pairwise_kernels(self.data['X_test'],train_subset,metric=kernel_map[arm['kernel']], gamma=arm['gamma'],degree=arm['degree'],coef0=arm['coef0'])
+            elif kernel_type=='sigmoid':
+                K=metrics.pairwise.pairwise_kernels(train_subset,metric=kernel_map[arm['kernel']], gamma=arm['gamma'],coef0=arm['coef0'])
+                val_kernel=metrics.pairwise.pairwise_kernels(self.data['X_val'],train_subset,metric=kernel_map[arm['kernel']], gamma=arm['gamma'],coef0=arm['coef0'])
+                if n_units==s_max:
+                    test_kernel=metrics.pairwise.pairwise_kernels(self.data['X_test'],train_subset,metric=kernel_map[arm['kernel']], gamma=arm['gamma'],coef0=arm['coef0'])
+
             x=block_kernel_solve(K,train_targets_subset,lambdav=1/arm['C']*(n_units))
             y_loss=1
             test_acc=0
-            val_kernel=metrics.pairwise.pairwise_kernels(self.data['X_val'],train_subset,metric=kernel_map[arm['kernel']], gamma=arm['gamma'])
             y_pred=np.argmax(val_kernel.dot(x),axis=1)
             val_acc=metrics.accuracy_score(y_pred,self.data['y_val'])
             if n_units==s_max:
-                test_kernel=metrics.pairwise.pairwise_kernels(self.data['X_test'],train_subset,metric=kernel_map[arm['kernel']], gamma=arm['gamma'])
                 y_pred=np.argmax(test_kernel.dot(x),axis=1)
                 test_acc=metrics.accuracy_score(y_pred,self.data['y_test'])
-
-
+                del test_kernel
+            del K,val_kernel
+        del self.data
+        gc.collect()
 
         return y_loss,val_acc,test_acc
 
@@ -240,25 +264,25 @@ def get_svm_search():
     params = {}
     params['C']=Param('C',-3.0,5.0,distrib='uniform',scale='log',logbase=10.0)
     params['gamma']=Param('gamma',-5.0,1.0,distrib='uniform',scale='log',logbase=10.0)
-    params['kernel']=Param('kernel',1,2,distrib='uniform',scale='linear',interval=1)
+    params['kernel']=Param('kernel',1,4,distrib='uniform',scale='linear',interval=1)
     params['preprocessor']=Param('kernel',1,4,distrib='uniform',scale='linear',interval=1)
     params['coef0']=Param('coef0',-1.0,1.0,distrib='uniform',scale='linear')
-    params['degree']=Param('degree',2,6,distrib='uniform',scale='linear',interval=1)
+    params['degree']=Param('degree',2,5,distrib='uniform',scale='linear',interval=1)
 
     return params
 def main():
     data_dir="/home/lisha/school/Projects/hyperband_nnet/hyperband2/svm/cifar10"
-    model=svm_model("cifar10",data_dir,2000,False)
+    model=svm_model("cifar10",data_dir,2000,True)
     arm={}
     arm['dir']=data_dir+"/hyperband_constant/trial2000/default_arm"
     arm['kernel']=1
-    arm['C']=6296.5862020382683
+    arm['C']=64286.7665
     arm['degree']=2
     arm['coef0']=0.29041
-    arm['gamma']=5.0438294538979234
-    arm['preprocessor']=3
+    arm['gamma']=0.006859435
+    arm['preprocessor']=1
     arm['results']=[]
-    train_loss,val_acc,test_acc=model.run_solver('iter',40000,arm,type='lsqr')
+    train_loss,val_acc,test_acc=model.run_solver('iter',50000,arm,type='lsqr')
     print train_loss, test_acc
 if __name__ == "__main__":
     main()
