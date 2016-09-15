@@ -216,11 +216,14 @@ class svm_model(ModelInf):
         # Shuffle the data and split up the request subset of the training data
         size = int(n_units)
         s_max = self.data['y_train'].shape[0]
-        shuffle = cross_validation.StratifiedShuffleSplit(self.data['y_train'],3,test_size=n_units,random_state=0)
-        for train_index, test_index in shuffle:
-            train_subset = self.data['X_train'][test_index]
-            train_targets_subset = self.data['y_train'][test_index]
-
+        if n_units<s_max:
+            shuffle = cross_validation.StratifiedShuffleSplit(self.data['y_train'],3,test_size=n_units,random_state=0)
+            for train_index, test_index in shuffle:
+                train_subset = self.data['X_train'][test_index]
+                train_targets_subset = self.data['y_train'][test_index]
+        else:
+            train_subset=self.data['X_train']
+            train_targets_subset=self.data['y_train']
         # Train the SVM on the subset set
         if solver_type=='SVM':
             clf = svm.SVC(C=arm['C'], kernel=kernel_map[arm['kernel']], gamma=arm['gamma'], coef0=arm['coef0'], degree=arm['degree'])
@@ -280,7 +283,7 @@ def get_svm_search():
     return params
 def main():
     data_dir="/home/lisha/school/Projects/hyperband_nnet/hyperband2/svm/cifar10"
-    model=svm_model("cifar10",data_dir,3000,True)
+    model=svm_model("cifar10",data_dir,3000,False)
     arm={}
     arm['dir']=data_dir+"/hyperband_constant/trial2000/default_arm"
     arm['kernel']=1
@@ -290,7 +293,7 @@ def main():
     arm['gamma']=0.006859435
     arm['preprocessor']=1
     arm['results']=[]
-    train_loss,val_acc,test_acc=model.run_solver('iter',50000,arm,solver_type='lsqr')
+    train_loss,val_acc,test_acc=model.run_solver('iter',40000,arm,solver_type='lsqr')
     print train_loss, test_acc
 if __name__ == "__main__":
     main()
