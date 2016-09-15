@@ -48,7 +48,11 @@ def block_kernel_solve(K, y, numiter=1, block_size=4000,num_classes=10, epochs=3
                         KbTKb = K_block.T.dot(K_block)
 
                         print("solving block {0}".format(b))
-                        x_block = scipy.linalg.solve(KbTKb, K_block.T.dot(residuals))
+                        try:
+                            x_block = scipy.linalg.solve(KbTKb, K_block.T.dot(residuals))
+                        except:
+                            return None
+
 
                         # update model
                         x[block] = x[block]+x_block
@@ -248,6 +252,8 @@ class svm_model(ModelInf):
                     test_kernel=metrics.pairwise.pairwise_kernels(self.data['X_test'],train_subset,metric=kernel_map[arm['kernel']], gamma=arm['gamma'],coef0=arm['coef0'])
 
             x=block_kernel_solve(K,train_targets_subset,lambdav=1/arm['C']*(n_units))
+            if x is None:
+                return 1, 0 ,0
             y_loss=1
             test_acc=0
             y_pred=np.argmax(val_kernel.dot(x),axis=1)
@@ -269,12 +275,12 @@ def get_svm_search():
     params['kernel']=Param('kernel',1,4,distrib='uniform',scale='linear',interval=1)
     params['preprocessor']=Param('kernel',1,4,distrib='uniform',scale='linear',interval=1)
     params['coef0']=Param('coef0',-1.0,1.0,distrib='uniform',scale='linear')
-    params['degree']=Param('degree',2,5,distrib='uniform',scale='linear',interval=1)
+    params['degree']=Param('degree',2,6,distrib='uniform',scale='linear',interval=1)
 
     return params
 def main():
     data_dir="/home/lisha/school/Projects/hyperband_nnet/hyperband2/svm/cifar10"
-    model=svm_model("cifar10",data_dir,2000,True)
+    model=svm_model("cifar10",data_dir,3000,True)
     arm={}
     arm['dir']=data_dir+"/hyperband_constant/trial2000/default_arm"
     arm['kernel']=1
