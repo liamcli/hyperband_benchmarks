@@ -176,6 +176,10 @@ def main(argv):
         params= get_svm_search()
         obj=svm_model('cifar10',data_dir,seed_id)
         hyperband_finite(obj,12*60,'iter',dir,params,100,len(obj.orig_data['y_train']))
-
+    elif model=='cifar10_random_features':
+        from svm.random_features_helper import get_svm_search,random_features_model
+        params=get_svm_search()
+        obj=random_features_model('cifar10',data_dir,seed=seed_id)
+        hyperband_finite(obj,12*60,'iter',dir,params,100,100000)
 if __name__ == "__main__":
     main(sys.argv[1:])
