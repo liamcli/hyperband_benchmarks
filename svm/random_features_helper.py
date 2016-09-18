@@ -177,7 +177,7 @@ class random_features_model(ModelInf):
 
 def get_svm_search():
     params = {}
-    params['C']=Param('C',-3.0,5.0,distrib='uniform',scale='log',logbase=10.0)
+    params['C']=Param('C',-10.0,-2.0,distrib='uniform',scale='log',logbase=10.0)
     params['gamma']=Param('gamma',-5.0,1.0,distrib='uniform',scale='log',logbase=10.0)
     params['preprocessor']=Param('kernel',1,5,distrib='uniform',scale='linear',interval=1)
 
@@ -191,7 +191,7 @@ def main():
     arm['C']=0.0011215088169
     arm['gamma']=0.0001644725
     arm['results']=[]
-    train_loss,val_acc,test_acc=model.run_solver('iter',10000,arm)
+    train_loss,val_acc,test_acc=model.run_solver('iter',25000,arm)
     print train_loss, test_acc
 if __name__ == "__main__":
     main()
