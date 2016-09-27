@@ -92,7 +92,7 @@ class cifar10_conv(ModelInf):
             s.train_net = arm['train_net_file']
             s.test_net.append(arm['val_net_file'])
             s.test_net.append(arm['test_net_file'])
-            s.test_interval = 10000  # Test after every 1000 training iterations.
+            s.test_interval = 60000  # Test after every 1000 training iterations.
             s.test_iter.append(int(10000/arm['batch_size'])) # Test on 100 batches each time we test.
             s.test_iter.append(int(10000/arm['batch_size'])) # Test on 100 batches each time we test.
 
@@ -102,7 +102,7 @@ class cifar10_conv(ModelInf):
             s.iter_size = 1
 
             # 150 epochs max
-            s.max_iter = 40000/arm['batch_size']*350     # # of times to update the net (training iterations)
+            s.max_iter = self.max_iter     # # of times to update the net (training iterations)
 
             # Solve using the stochastic gradient descent (SGD) algorithm.
             # Other choices include 'Adam' and 'RMSProp'.
