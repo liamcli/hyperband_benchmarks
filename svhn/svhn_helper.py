@@ -18,12 +18,13 @@ learned_param = [weight_param, bias_param]
 
 
 class svhn_conv(ModelInf):
-    def __init__(self,data_dir,device=0,seed=1):
+    def __init__(self,data_dir,device=0,seed=1,max_iter=60000):
         self.data_dir=data_dir
         self.name="svhn_conv"
         caffe.set_device(device)
         caffe.set_mode_gpu()
         self.device=device
+        self.max_iter=max_iter
         numpy.random.seed(seed)
 
 
@@ -61,12 +62,12 @@ class svhn_conv(ModelInf):
             n.conv2 = conv_layer(n.norm1, 5, 32, pad=2, stride=1, param=[dict(lr_mult=1,decay_mult=arm['weight_cost2']/weight_decay),bias_param],weight_filler=dict(type='gaussian', std=arm['init_std2']),
                     bias_filler=dict(type='constant',value=0))
             n.relu2 = caffe.layers.ReLU(n.conv2, in_place=True)
-            n.pool2 = pooling_layer(n.conv2, 'max', 3, stride=2)
+            n.pool2 = pooling_layer(n.conv2, 'ave', 3, stride=2)
             n.norm2 = caffe.layers.LRN(n.pool2, local_size=3, alpha=arm['scale'], beta=arm['power'], norm_region=1)
             n.conv3 = conv_layer(n.norm2, 5, 64, pad=2, stride=1, param=[dict(lr_mult=1,decay_mult=arm['weight_cost3']/weight_decay),bias_param],weight_filler=dict(type='gaussian', std=arm['init_std3']),
                     bias_filler=dict(type='constant',value=0))
             n.relu3 = caffe.layers.ReLU(n.conv3, in_place=True)
-            n.pool3 = pooling_layer(n.conv3, 'max', 3, stride=2)
+            n.pool3 = pooling_layer(n.conv3, 'ave', 3, stride=2)
             n.ip1 = caffe.layers.InnerProduct(n.pool3, num_output=10, param=[dict(lr_mult=1,decay_mult=arm['weight_cost4']/weight_decay),bias_param],weight_filler=dict(type='gaussian', std=arm['init_std4']),
                     bias_filler=dict(type='constant',value=0))
             #n.ip2 = caffe.layers.InnerProduct(n.ip1, num_output=2048, param=[dict(lr_mult=1,decay_mult=arm['weight_cost4']/weight_decay),bias_param],weight_filler=dict(type='gaussian', std=arm['init_std4']),
@@ -104,7 +105,7 @@ class svhn_conv(ModelInf):
             s.iter_size = 1
 
             # 150 epochs max
-            s.max_iter = 40000/arm['batch_size']*350     # # of times to update the net (training iterations)
+            s.max_iter = self.max_iter # # of times to update the net (training iterations)
 
             # Solve using the stochastic gradient descent (SGD) algorithm.
             # Other choices include 'Adam' and 'RMSProp'.
@@ -118,7 +119,7 @@ class svhn_conv(ModelInf):
             # every `stepsize` iterations.
             s.lr_policy = 'step'
             s.gamma = 0.1
-            s.stepsize = 60000/arm['lr_step']
+            s.stepsize = self.max_iter/arm['lr_step']
 
             # Set other SGD hyperparameters. Setting a non-zero `momentum` takes a
             # weighted average of the current gradient and previous gradients to make
@@ -242,7 +243,7 @@ class svhn_conv(ModelInf):
                 arm['n_iter']+=1
                 #print time.localtime(time.time())
         elif unit=='iter':
-            n_units=min(n_units,400*150-arm['n_iter'])
+            n_units=min(n_units,self.max_iter-arm['n_iter'])
             s.step(n_units)
             arm['n_iter']+=n_units
         s.snapshot()
