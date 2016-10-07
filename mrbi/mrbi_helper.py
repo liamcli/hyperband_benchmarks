@@ -20,11 +20,12 @@ learned_param = [weight_param, bias_param]
 class mrbi_conv(ModelInf):
     def __init__(self,data_dir,device=0,seed=1,max_iter=30000):
         self.data_dir=data_dir
-        self.name="svhn_conv"
+        self.name="mrbi_conv"
         caffe.set_device(device)
         caffe.set_mode_gpu()
         self.device=device
         self.max_iter=max_iter
+        self.seed=seed
         numpy.random.seed(seed)
 
 
@@ -46,34 +47,30 @@ class mrbi_conv(ModelInf):
             n = caffe.NetSpec()
             if split==1:
                 n.data, n.label = caffe.layers.Data(batch_size=arm['batch_size'], backend=caffe.params.Data.LMDB, source=self.data_dir+"/mrbi_train",
-                    transform_param=dict(mean_file=self.data_dir+"/mean.binaryproto"),ntop=2)
+                                     transform_param=dict(mean_file=self.data_dir+"/mean.binaryproto"),ntop=2)
                 #transform_param=dict(mean_file=self.data_dir+"/mean.binaryproto"),
             elif split==2:
                 n.data, n.label = caffe.layers.Data(batch_size=arm['batch_size'], backend=caffe.params.Data.LMDB, source=self.data_dir+"/mrbi_val",
-                    transform_param=dict(mean_file=self.data_dir+"/mean.binaryproto"),ntop=2)
+                                     transform_param=dict(mean_file=self.data_dir+"/mean.binaryproto"),ntop=2)
             elif split==3:
                 n.data, n.label = caffe.layers.Data(batch_size=arm['batch_size'], backend=caffe.params.Data.LMDB, source=self.data_dir+"/mrbi_test",
-                    transform_param=dict(mean_file=self.data_dir+"/mean.binaryproto"),ntop=2)
+                                     transform_param=dict(mean_file=self.data_dir+"/mean.binaryproto"),ntop=2)
             n.conv1 = conv_layer(n.data, 5, 32, pad=2, stride=1, param=[dict(lr_mult=1,decay_mult=arm['weight_cost1']/weight_decay),bias_param],weight_filler=dict(type='gaussian', std=arm['init_std1']),
-                    bias_filler=dict(type='constant',value=0))
+                    bias_filler=dict(type='constant'))
             n.pool1 = pooling_layer(n.conv1, 'max', 3, stride=2)
             n.relu1 = caffe.layers.ReLU(n.pool1,in_place=True)
             n.norm1 = caffe.layers.LRN(n.pool1, local_size=3, alpha=arm['scale'], beta=arm['power'], norm_region=1)
             n.conv2 = conv_layer(n.norm1, 5, 32, pad=2, stride=1, param=[dict(lr_mult=1,decay_mult=arm['weight_cost2']/weight_decay),bias_param],weight_filler=dict(type='gaussian', std=arm['init_std2']),
-                    bias_filler=dict(type='constant',value=0))
+                    bias_filler=dict(type='constant'))
             n.relu2 = caffe.layers.ReLU(n.conv2, in_place=True)
             n.pool2 = pooling_layer(n.conv2, 'ave', 3, stride=2)
             n.norm2 = caffe.layers.LRN(n.pool2, local_size=3, alpha=arm['scale'], beta=arm['power'], norm_region=1)
             n.conv3 = conv_layer(n.norm2, 5, 64, pad=2, stride=1, param=[dict(lr_mult=1,decay_mult=arm['weight_cost3']/weight_decay),bias_param],weight_filler=dict(type='gaussian', std=arm['init_std3']),
-                    bias_filler=dict(type='constant',value=0))
+                    bias_filler=dict(type='constant'))
             n.relu3 = caffe.layers.ReLU(n.conv3, in_place=True)
             n.pool3 = pooling_layer(n.conv3, 'ave', 3, stride=2)
             n.ip1 = caffe.layers.InnerProduct(n.pool3, num_output=10, param=[dict(lr_mult=1,decay_mult=arm['weight_cost4']/weight_decay),bias_param],weight_filler=dict(type='gaussian', std=arm['init_std4']),
-                    bias_filler=dict(type='constant',value=0))
-            #n.ip2 = caffe.layers.InnerProduct(n.ip1, num_output=2048, param=[dict(lr_mult=1,decay_mult=arm['weight_cost4']/weight_decay),bias_param],weight_filler=dict(type='gaussian', std=arm['init_std4']),
-            #        bias_filler=dict(type='constant',value=0))
-            #n.ip3 = caffe.layers.InnerProduct(n.ip2, num_output=10, param=[dict(lr_mult=1,decay_mult=arm['weight_cost4']/weight_decay),bias_param],weight_filler=dict(type='gaussian', std=arm['init_std4']),
-            #        bias_filler=dict(type='constant',value=0))
+                    bias_filler=dict(type='constant'))
             n.loss = caffe.layers.SoftmaxWithLoss(n.ip1, n.label)
             if split==1:
                 filename=arm['dir']+'/network_train.prototxt'
@@ -135,6 +132,7 @@ class mrbi_conv(ModelInf):
             # snapshot every 10K iterations -- ten times during training.
             s.snapshot = 10000
             s.snapshot_prefix = arm['dir']+"/cifar10_data"
+            s.random_seed=self.seed+int(arm['dir'][arm['dir'].index('arm')+3:])
 
             # Train on the GPU.  Using the CPU to train large networks is very slow.
             s.solver_mode = caffe.proto.caffe_pb2.SolverParameter.GPU
@@ -155,16 +153,16 @@ class mrbi_conv(ModelInf):
             arm['dir']=dir+"/"+dirname
             arm['n_iter']=0
             arm['momentum']=0.90
-            arm['learning_rate']=0.001
-            arm['weight_cost1']=0.004
-            arm['weight_cost2']=0.004
-            arm['weight_cost3']=0.004
-            arm['weight_cost4']=1
+            arm['learning_rate']=0.003419395
+            arm['weight_cost1']=0.063023007
+            arm['weight_cost2']=0.0006438862
+            arm['weight_cost3']=0.0017623526
+            arm['weight_cost4']=0.6515652
             #arm['size']=3
-            arm['scale']=0.00005
-            arm['power']=0.010001
+            arm['scale']=0.0001410592
+            arm['power']=1.175771
             arm['batch_size']=100
-            arm['lr_step']=1
+            arm['lr_step']=3
             arm['init_std1']=0.0001
             arm['init_std2']=0.01
             arm['init_std3']=0.01
@@ -255,9 +253,10 @@ class mrbi_conv(ModelInf):
         for i in range(val_batches):
             s.test_nets[0].forward()
             val_acc += s.test_nets[0].blobs['acc'].data
-        for i in range(test_batches):
-            s.test_nets[1].forward()
-            test_acc += s.test_nets[1].blobs['acc'].data
+        if arm['n_iter']==self.max_iter:
+            for i in range(test_batches):
+                s.test_nets[1].forward()
+                test_acc += s.test_nets[1].blobs['acc'].data
 
         val_acc=val_acc/val_batches
         test_acc=test_acc/test_batches
@@ -280,14 +279,14 @@ def get_cnn_search_space():
     return params
 
 def main():
-    data_dir=sys.argv[1]
-    output_dir=sys.argv[2]
-    #"/home/lisha/school/caffe/examples/cifar10"
-    model= mrbi_conv(data_dir,device=0)
+    #data_dir=sys.argv[1]
+    #output_dir=sys.argv[2]
+    data_dir="/home/lisha/school/Projects/hyperband_nnet/hyperband2/mrbi"
+    output_dir="/home/lisha/school/Projects/hyperband_nnet/hyperband2/mrbi/default"
+    model= mrbi_conv(data_dir,device=1)
     param=get_cnn_search_space()
-    #"/home/lisha/school/Projects/hyperband_nnet/hyperband2/cifar10/default"
     arms = model.generate_arms(1,output_dir,param,True)
-    train_loss,val_acc, test_acc = model.run_solver('iter',2000,arms[0])
+    train_loss,val_acc, test_acc = model.run_solver('iter',30000,arms[0])
     print train_loss, val_acc, test_acc
 
 

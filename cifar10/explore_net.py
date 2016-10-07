@@ -2,7 +2,8 @@ import caffe
 import pickle
 import os
 import numpy
-import glob
+import sys
+import ast
 #Globals
 base_lr = 0.001
 weight_decay= 0.004
@@ -52,14 +53,14 @@ def build_net(arm, data_file,mean_file,split='train'):
     with open(filename,'w') as f:
         f.write(str(n.to_proto()))
         return f.name
-def build_solver(arm,data_file,mean_file):
+def build_solver(arm,data_file,mean_file,iters):
     s = caffe.proto.caffe_pb2.SolverParameter()
 
     #s.random_seed=42
     # Specify locations of the train and (maybe) test networks.
     s.train_net = build_net(arm,data_file,mean_file)
     s.test_net.append(build_net(arm,data_file,mean_file,'test'))
-    s.test_interval = 10000  # Test after every 1000 training iterations.
+    s.test_interval = 200000  # Test after every 1000 training iterations.
     s.test_iter.append(int(10000/arm['batch_size'])) # Test on 100 batches each time we test.
     #s.test_iter.append(int(10000/arm['batch_size'])) # Test on 100 batches each time we test.
 
@@ -69,7 +70,7 @@ def build_solver(arm,data_file,mean_file):
     s.iter_size = 1
 
     # 150 epochs max
-    s.max_iter = 40000/arm['batch_size']*350     # # of times to update the net (training iterations)
+    s.max_iter = iters     # # of times to update the net (training iterations)
 
     # Solve using the stochastic gradient descent (SGD) algorithm.
     # Other choices include 'Adam' and 'RMSProp'.
@@ -83,7 +84,7 @@ def build_solver(arm,data_file,mean_file):
     # every `stepsize` iterations.
     s.lr_policy = 'step'
     s.gamma = 0.1
-    s.stepsize = 30000/arm['lr_step']
+    s.stepsize = int(s.max_iter/arm['lr_step'])
 
     # Set other SGD hyperparameters. Setting a non-zero `momentum` takes a
     # weighted average of the current gradient and previous gradients to make
@@ -97,8 +98,9 @@ def build_solver(arm,data_file,mean_file):
 
     # Snapshots are files used to store networks we've trained.  Here, we'll
     # snapshot every 10K iterations -- ten times during training.
+    s.random_seed=10
     s.snapshot = 10000
-    s.snapshot_prefix = arm['dir']+"/cifar10_data"
+    s.snapshot_prefix = arm['dir']+"/full_cifar10_data"
 
     # Train on the GPU.  Using the CPU to train large networks is very slow.
     s.solver_mode = caffe.proto.caffe_pb2.SolverParameter.GPU
@@ -108,33 +110,33 @@ def build_solver(arm,data_file,mean_file):
     with open(filename,'w') as f:
         f.write(str(s))
         return f.name
-def run_solver(n_units, arm, disp_interval=100):
+def run_solver(n_units, arm, device,iters):
     #print(arm['dir'])
-    caffe.set_device(1)
+    caffe.set_device(device)
     caffe.set_mode_gpu()
     dir="/home/lisha/school/caffe/examples/cifar10/"
-    s = caffe.get_solver(build_solver(arm,dir+"cifar10_fulltrain_lmdb",dir+"mean.binaryproto"))
+    s = caffe.get_solver(build_solver(arm,dir+"cifar10_fulltrain_lmdb",dir+"fullmean.binaryproto",iters))
 
     #prefix=arm['dir']+"/cifar10_data_iter_"
     #s.restore(prefix+str(60000)+".solverstate")
     #s.net.copy_from(prefix+str(60000)+".caffemodel")
     #s.test_nets[0].share_with(s.net)
     #s.test_nets[1].share_with(s.net)
-    s.step(n_units)
-
-    s.snapshot()
-    train_loss = s.net.blobs['loss'].data
-    test_acc=0
-    batches=100
-    for i in range(batches):
-        s.test_nets[0].forward()
-        test_acc += s.test_nets[0].blobs['acc'].data
-    test_acc=test_acc/batches
-    print train_loss,test_acc
-    with open('/home/lisha/school/Projects/hyperband_nnet/hyperband2/cifar10/best_runs.txt','a') as file:
-        file.write(arm['dir']+', test_acc, '+str(test_acc)+'\n')
+    for i in range(n_units/1000):
+        s.step(1000)
+        train_loss = s.net.blobs['loss'].data
+        test_acc=0
+        batches=100
+        for i in range(batches):
+            s.test_nets[0].forward()
+            test_acc += s.test_nets[0].blobs['acc'].data
+        test_acc=test_acc/batches
+        print train_loss,test_acc
+        with open('/home/lisha/school/Projects/hyperband_nnet/hyperband2/cifar10/test_random_seed2.txt','a') as file:
+            file.write(arm['dir']+', test_acc, '+str(test_acc)+'\n')
+    return test_acc
 def calculate_acc(arm, iter):
-    caffe.set_device(0)
+    caffe.set_device(2)
     caffe.set_mode_gpu()
     dir="/home/lisha/school/caffe/examples/cifar10/"
     s = caffe.get_solver(build_solver(arm,dir+"cifar10_fulltrain_lmdb",dir+"mean.binaryproto"))
@@ -151,16 +153,31 @@ def calculate_acc(arm, iter):
         test_acc += s.test_nets[0].blobs['acc'].data
     test_acc=test_acc/batches
     print train_loss,test_acc
-def run_hyperband_dir(dir):
+def run_hyperband_dir(dir,device,iters):
     os.chdir(dir)
-    data=pickle.load(open('hyperband_results.pkl','r'))
-    inds=[0,1,2,3,5,6,7,8,9]
+    data=pickle.load(open('results.pkl','r'))
+    inds=[0,1,2,3,4,6,7,8,9,10]
     val_acc=[data[0][i][1][2] for i in inds]
     ind_best=val_acc.index(max(val_acc))
     arm=data[0][inds[ind_best]][1][0]
     arm['dir']=os.getcwd()+"/"+arm['dir'][arm['dir'].index('arm'):]
-    run_solver(100000,arm)
+    test_acc=run_solver(iters,arm,device,iters)
     #calculate_acc(arm,100000)
+def run_hyperband_inf(dir,device,iters):
+    os.chdir(dir)
+    data=pickle.load(open('results_inf.pkl','r'))
+    best_ind=numpy.argmax([d[1] for d in data[0]])
+    keys=data[1].keys()
+    keys.sort(key=lambda x:x[0]*10-1*x[1])
+
+    print keys[best_ind]
+    data_dict=data[1][keys[best_ind]]
+    best_arm=numpy.argmax([float(data_dict[t]['results'][-1][2]) for t in data_dict.keys()])
+    arm=data_dict[best_arm]
+    arm['dir']=os.getcwd()+"/"+arm['dir'][arm['dir'].index('arm'):]
+    test_acc=run_solver(iters,arm,device,iters)
+    #calculate_acc(arm,100000)
+
 def run_other_dir(dir,filename):
     os.chdir(dir)
     data=pickle.load(open(filename,'r'))
@@ -168,19 +185,33 @@ def run_other_dir(dir,filename):
     best_arm=numpy.argmin(val_errors[0:56])
     arm_dir=os.getcwd()+'/arm'+str(best_arm+1)
     arm = create_arm_dict(data['trials'][best_arm]['params'],arm_dir)
-    run_solver(100000,arm)
+    run_solver(50*75,arm)
 def main():
-    rootdir='/home/lisha/school/Projects/hyperband_nnet/hyperband2/cifar10/'
-    run_hyperband_dir(rootdir+'hyperband/trial300')
-    run_hyperband_dir(rootdir+'hyperband/trial400')
-    run_hyperband_dir(rootdir+'hyperband/trial500')
-    run_hyperband_dir(rootdir+'hyperband/trial1000')
-    run_hyperband_dir(rootdir+'hyperband/trial1100')
-    run_hyperband_dir(rootdir+'hyperband/trial4000')
-    run_hyperband_dir(rootdir+'hyperband/trial5000')
-    run_hyperband_dir(rootdir+'hyperband/trial6000')
-    run_hyperband_dir(rootdir+'hyperband/trial7000')
-    run_hyperband_dir(rootdir+'hyperband/trial10000')
+    device=int(sys.argv[1])
+    #rootdir='/home/lisha/school/Projects/hyperband_nnet/hyperband2/cifar10/'
+    file_txt=open('explore_params.txt')
+    params=file_txt.read()
+    params=ast.literal_eval(params)
+    arm = create_arm_dict(params,params['dir'])
+    run_solver(500*300,arm,device,500*300)
+    #run_hyperband_dir(rootdir+'hyperband/trial300',0)
+    #if device==0:
+    #    run_hyperband_dir(rootdir+'hyperband/trial400',0)
+    #    run_hyperband_dir(rootdir+'hyperband/trial500',0)
+    #run_hyperband_dir(rootdir+'hyperband/trial1000',1)
+    #if device==0:
+    #run_hyperband_inf(rootdir+'hyperband_inf/trial22000',device,500*300)
+    #run_hyperband_dir(rootdir+'hyperband_constant/unbounded/trial5900',device,500*150)
+
+
+
+
+    #    run_hyperband_dir(rootdir+'hyperband/trial4000',0)
+    #else:
+    #    run_hyperband_dir(rootdir+'hyperband/trial5000',1)
+    #    run_hyperband_dir(rootdir+'hyperband/trial6000',1)
+    #    run_hyperband_dir(rootdir+'hyperband/trial7000',1)
+    #    run_hyperband_dir(rootdir+'hyperband/trial10000',1)
     #smac_runs=glob.glob(rootdir+"smac/*/")
     #for s in smac_runs:
     #    run_other_dir(s,'smac_2_06_01-dev.pkl')
@@ -195,7 +226,11 @@ def main():
 def create_arm_dict(trial,arm_dir):
     arm={}
     for k in trial.keys():
-        arm[k[1:]]=float(trial[k])
+        try:
+            #arm[k[1:]]=float(trial[k])
+            arm[k]=float(trial[k])
+        except:
+            pass
     arm['lr_step']=int(arm['lr_step'])
     arm['test_net_file']=arm_dir+'/network_test.prototxt'
     arm['batch_size']=100

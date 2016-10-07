@@ -17,7 +17,7 @@ class Logger(object):
 def sha_inf(model,params,units,dir,n,B,eta=2,calculate=True):
     def log_eta(x):
         return numpy.log(x)/numpy.log(eta)
-    halvings = max(1,int(numpy.ceil(log_eta(n)))+1)
+    halvings = max(1,int(numpy.ceil(log_eta(n))))
 
     if calculate:
         arms = model.generate_arms(n,dir,params,max_iter=B/halvings)
@@ -66,8 +66,8 @@ def hyperband_inf(model,runtime,units,dir,params,eta,max_k=3, starting_b=1,min_u
         print '####################'
         while l>=0 and minutes(time.time())< runtime:
             n=eta**l
-            if B/n/max(1,int(log_eta(n))+1)>=min_unit and n >=min_arms:
-                if max_unit is None or B/max(1,numpy.ceil(log_eta(n))+1)<=max_unit:
+            if B/n/max(1,numpy.ceil(log_eta(n)))>=min_unit and n >=min_arms:
+                if max_unit is None or B/max(1,numpy.ceil(log_eta(n)))<=max_unit:
                     print 'running sha'
                     print 's=%d, n=%d' %(l,n)
                     arms,result = sha_inf(model,params,units,dir, n,B,eta,calculate)
@@ -121,7 +121,7 @@ def main(argv):
         from svm.random_features_helper import get_svm_search,random_features_model
         params = get_svm_search()
         obj=random_features_model('cifar10',data_dir,seed=seed_id)
-        hyperband_inf(obj,12*60,'iter',dir,params,4,max_k=4,starting_b=50000,min_unit=100,min_arms=4,max_unit=100000,calculate=True)
+        hyperband_inf(obj,12*60,'iter',dir,params,4,max_k=4,starting_b=50000,min_unit=100,min_arms=4,max_unit=100000,calculate=False)
 
 if __name__=="__main__":
     main(sys.argv[1:])

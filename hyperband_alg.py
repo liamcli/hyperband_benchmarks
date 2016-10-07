@@ -16,7 +16,7 @@ class Logger(object):
         self.terminal.write(message)
         self.log.write(message)
         self.log.flush()
-def hyperband_finite(model,runtime,units,dir,params,min_units,max_units,max_k=2,bounded=True, adaptive=False):
+def hyperband_finite(model,runtime,units,dir,params,min_units,max_units,eta=4.,B=0,max_k=2,s_run=None,bounded=True, adaptive=False):
     # input t in minutes
     t_0 = time.time()
     print time.localtime(t_0)
@@ -27,15 +27,13 @@ def hyperband_finite(model,runtime,units,dir,params,min_units,max_units,max_k=2,
     time_test=[]
     while minutes(time.time())< runtime and k <max_k:
 
-        eta = 4.
         def logeta(x):
-            return numpy.log(x)/numpy.log(eta)
-        if bounded:
-            B=(int(logeta(max_units/min_units))+1)*max_units
-        else:
-            B = int((2**k)*max_units)
-        #B = 15*max_units
-
+            return numpy.round(numpy.log(x)/numpy.log(eta),decimals=10)
+        if B==0:
+            if bounded:
+                B=int(numpy.floor(logeta(max_units/min_units))+1)*max_units
+            else:
+                B = int((2**k)*max_units)
 
         k+=1
         #if bounded:
@@ -49,9 +47,10 @@ def hyperband_finite(model,runtime,units,dir,params,min_units,max_units,max_k=2,
         # it also specifies the maximum number of rounds
         R = float(max_units)
         r = float(min_units)
-        ell_max = int(min(B/R-1,int(logeta(R/r))))
+        ell_max = int(min(B/R-1,int(numpy.floor(logeta(R/r)))))
         ell = ell_max
         best_val =0
+        print ell_max
 
         while ell >= 0 and minutes(time.time())< runtime:
         #while minutes(time.time())< runtime:
@@ -63,21 +62,22 @@ def hyperband_finite(model,runtime,units,dir,params,min_units,max_units,max_k=2,
                 s = 0
                 while (n)*R*(s+1.)*eta**(-s)>B:
                     s+=1
-                #s-=1
+                if s_run is None or s==s_run:
+                    #s-=1
 
-                print
-                print 's=%d, n=%d' %(s,n)
-                print 'n_i\tr_k'
-                arms,result = sha_finite(model,params,units, n,s,eta,R,dir)
-                results_dict[(k,ell)]=arms
-                print "k="+str(k)+", l="+str(ell)+", val_acc="+str(result[2])+", test_acc="+str(result[3])+" best_arm_dir: " + result[0]['dir']
-                time_test.append([minutes(time.time()),result])
-                print "time elapsed: "+ str(minutes(time.time()))
-                if result[2]>best_val:
-                    best_val=result[2]
-                    best_n=n
-                    best_s=s
-                    best_arm=result[0]
+                    print
+                    print 's=%d, n=%d' %(s,n)
+                    print 'n_i\tr_k'
+                    arms,result = sha_finite(model,params,units, n,s,eta,R,dir)
+                    results_dict[(k,ell)]=arms
+                    print "k="+str(k)+", l="+str(ell)+", val_acc="+str(result[2])+", test_acc="+str(result[3])+" best_arm_dir: " + result[0]['dir']
+                    time_test.append([minutes(time.time()),result])
+                    print "time elapsed: "+ str(minutes(time.time()))
+                    if result[2]>best_val:
+                       best_val=result[2]
+                       best_n=n
+                       best_s=s
+                       best_arm=result[0]
 
                 ell-=1
 
@@ -90,7 +90,7 @@ def hyperband_finite(model,runtime,units,dir,params,min_units,max_units,max_k=2,
             print "k="+str(k)+", l="+str(ell)+", val_acc="+str(result[2])+", test_acc="+str(result[3])+" best_arm_dir: " + result[0]['dir']
             time_test.append([minutes(time.time()),result])
 
-    pickle.dump([time_test,results_dict],open(dir+'/results.pkl','w'))
+    #pickle.dump([time_test,results_dict],open(dir+'/results.pkl','w'))
 
 def sha_finite(model,params,units, n, s, eta, R,dir):
     arms = model.generate_arms(n,dir,params)
@@ -112,6 +112,12 @@ def sha_finite(model,params,units, n, s, eta, R,dir):
         remaining_arms=sorted(remaining_arms,key=lambda a: -a[2])
         n_k1 = int( n*eta**(-i-1) )
         if s-i-1>=0:
+            for k in range(n_k1,len(remaining_arms)):
+                arm_dir=arms[remaining_arms[k][0]]['dir']
+                files = os.listdir(arm_dir)
+                for file in files:
+                    if file.endswith(".caffemodel") or file.endswith(".solverstate"):
+                        os.remove(os.path.join(arm_dir,file))
             remaining_arms=remaining_arms[0:n_k1]
     best_arm=arms[remaining_arms[0][0]]
     return arms,[best_arm,remaining_arms[0][1],remaining_arms[0][2],remaining_arms[0][3]]
@@ -152,6 +158,11 @@ def main(argv):
         params = get_cnn_search_space()
         obj=cifar10_conv(data_dir,device=device_id,seed=seed_id)
         hyperband_finite(obj,360,'iter',dir,params,100,30000,adaptive=True)
+    if model=='cifar10_s4':
+        from cifar10.cifar10_helper import get_cnn_search_space,cifar10_conv
+        params = get_cnn_search_space()
+        obj=cifar10_conv(data_dir,device=device_id,seed=seed_id)
+        hyperband_finite(obj,360,'iter',dir,params,100,30000,max_k=10,s_run=4,adaptive=False)
     if model=='cifar10_long':
         from cifar10.cifar10_helper import get_cnn_search_space,cifar10_conv
         params = get_cnn_search_space()
@@ -162,11 +173,36 @@ def main(argv):
         params = get_cnn_search_space()
         obj=svhn_conv(data_dir,device=device_id,seed=seed_id)
         hyperband_finite(obj,720,'iter',dir,params,100,60000,adaptive=True)
+    elif model=='svhn_s4':
+        from svhn.svhn_helper import get_cnn_search_space,svhn_conv
+        params = get_cnn_search_space()
+        obj=svhn_conv(data_dir,device=device_id,seed=seed_id)
+        hyperband_finite(obj,720,'iter',dir,params,100,60000,max_k=10,s_run=4,adaptive=False)
     elif model=='mrbi':
         from mrbi.mrbi_helper import get_cnn_search_space,mrbi_conv
         params = get_cnn_search_space()
         obj=mrbi_conv(data_dir,device=device_id,seed=seed_id)
         hyperband_finite(obj,360,'iter',dir,params,100,30000,adaptive=True)
+    elif model=='mrbi_s4':
+        from mrbi.mrbi_helper import get_cnn_search_space,mrbi_conv
+        params = get_cnn_search_space()
+        obj=mrbi_conv(data_dir,device=device_id,seed=seed_id)
+        hyperband_finite(obj,360,'iter',dir,params,100,30000,max_k=10,s_run=4,adaptive=False)
+    elif model=='svhn_agg':
+        from svhn.svhn_helper import get_cnn_search_space,svhn_conv
+        params = get_cnn_search_space()
+        obj=svhn_conv(data_dir,device=device_id,seed=seed_id)
+        hyperband_finite(obj,720,'iter',dir,params,100,60000,eta=6.0,adaptive=True,max_k=3)
+    elif model=='mrbi_agg':
+        from mrbi.mrbi_helper import get_cnn_search_space,mrbi_conv
+        params = get_cnn_search_space()
+        obj=mrbi_conv(data_dir,device=device_id,seed=seed_id)
+        hyperband_finite(obj,360,'iter',dir,params,100,30000,eta=6.0,adaptive=True,max_k=3)
+    elif model=='mrbi_10':
+        from mrbi.mrbi_helper import get_cnn_search_space,mrbi_conv
+        params = get_cnn_search_space()
+        obj=mrbi_conv(data_dir,device=device_id,seed=seed_id)
+        hyperband_finite(obj,360,'iter',dir,params,30,30000,eta=10.0,adaptive=True,max_k=3)
     elif model=='cifar100':
         from networkin.nin_helper import get_nin_search_space,nin_conv
         params = get_nin_search_space()

@@ -24,6 +24,7 @@ class cifar10_conv(ModelInf):
         caffe.set_mode_gpu()
         self.device=device
         self.max_iter=max_iter
+        self.seed=seed
         numpy.random.seed(seed)
 
 
@@ -132,6 +133,7 @@ class cifar10_conv(ModelInf):
             # snapshot every 10K iterations -- ten times during training.
             s.snapshot = 10000
             s.snapshot_prefix = arm['dir']+"/cifar10_data"
+            s.random_seed=self.seed+int(arm['dir'][arm['dir'].index('arm')+3:])
 
             # Train on the GPU.  Using the CPU to train large networks is very slow.
             s.solver_mode = caffe.proto.caffe_pb2.SolverParameter.GPU
@@ -231,9 +233,11 @@ class cifar10_conv(ModelInf):
         batches=100
         for i in range(batches):
             s.test_nets[0].forward()
-            s.test_nets[1].forward()
             val_acc += s.test_nets[0].blobs['acc'].data
-            test_acc += s.test_nets[1].blobs['acc'].data
+        if arm['n_iter']==self.max_iter:
+            for i in range(batches):
+                s.test_nets[1].forward()
+                test_acc += s.test_nets[1].blobs['acc'].data
         val_acc=val_acc/batches
         test_acc=test_acc/batches
         return train_loss,val_acc, test_acc
