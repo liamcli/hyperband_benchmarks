@@ -20,7 +20,7 @@ def sha_inf(model,params,units,dir,n,B,eta=2,calculate=True):
     halvings = max(1,int(numpy.ceil(log_eta(n))))
 
     if calculate:
-        arms = model.generate_arms(n,dir,params,max_iter=B/halvings)
+        arms = model.generate_arms(n,dir,params,max_iter=B/halvings/eta)
         remaining_arms=[list(a) for a in zip(arms.keys(),[0]*len(arms.keys()),[0]*len(arms.keys()),[0]*len(arms.keys()))]
     for i in range(halvings):
         n_arms = int(n/eta**i)

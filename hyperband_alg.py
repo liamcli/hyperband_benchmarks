@@ -90,7 +90,7 @@ def hyperband_finite(model,runtime,units,dir,params,min_units,max_units,eta=4.,B
             print "k="+str(k)+", l="+str(ell)+", val_acc="+str(result[2])+", test_acc="+str(result[3])+" best_arm_dir: " + result[0]['dir']
             time_test.append([minutes(time.time()),result])
 
-    #pickle.dump([time_test,results_dict],open(dir+'/results.pkl','w'))
+    pickle.dump([time_test,results_dict],open(dir+'/results.pkl','w'))
 
 def sha_finite(model,params,units, n, s, eta, R,dir):
     arms = model.generate_arms(n,dir,params)
