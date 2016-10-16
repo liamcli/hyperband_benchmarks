@@ -39,7 +39,7 @@ def sha_inf(model,params,units,dir,n,B,eta=2,calculate=True):
             remaining_arms=sorted(remaining_arms,key=lambda a: -a[2])[0:max(1,int(numpy.ceil(n_arms/eta)))]
     if calculate:
         best_arm=arms[remaining_arms[0][0]]
-        return arms,[best_arm,remaining_arms[0][1],remaining_arms[0][2],remaining_arms[0][2]]
+        return arms,[best_arm,remaining_arms[0][1],remaining_arms[0][2],remaining_arms[0][3]]
     else:
         return None, None
 
@@ -68,19 +68,21 @@ def hyperband_inf(model,runtime,units,dir,params,eta,max_k=3, starting_b=1,min_u
             n=eta**l
             if B/n/max(1,numpy.ceil(log_eta(n)))>=min_unit and n >=min_arms:
                 if max_unit is None or B/max(1,numpy.ceil(log_eta(n)))<=max_unit:
-                    print 'running sha'
                     print 's=%d, n=%d' %(l,n)
+                    print 'n_i\tr_k'
+                    print "time elapsed: "+ str(minutes(time.time()))
                     arms,result = sha_inf(model,params,units,dir, n,B,eta,calculate)
                     if calculate:
                         results_dict[(k,l)]=arms
                         best_acc = max(best_acc,result[2])
-                        print "k="+str(k)+", l="+str(l)+", best_acc="+str(best_acc)
+                        print "k="+str(k)+", l="+str(l)+", val_acc="+str(result[2])+", test_acc="+str(result[3])+" best_arm_dir: " + result[0]['dir']
                         time_test.append([minutes(time.time()),best_acc])
                         print "time elapsed: " + str(minutes(time.time()))
             l-=1
+            if calculate:
+                pickle.dump([time_test,results_dict],open(dir+'/results_inf.pkl','w'))
         k+=1
-    if calculate:
-        pickle.dump([time_test,results_dict],open(dir+'/results_inf.pkl','w'))
+
 
 def main(argv):
 

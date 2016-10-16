@@ -128,7 +128,7 @@ class nin_conv(ModelInf):
             s.iter_size = 1
 
             # 150 epochs max
-            s.max_iter = 150000     # # of times to update the net (training iterations)
+            s.max_iter = 60000     # # of times to update the net (training iterations)
 
             # Solve using the stochastic gradient descent (SGD) algorithm.
             # Other choices include 'Adam' and 'RMSProp'.
@@ -140,9 +140,12 @@ class nin_conv(ModelInf):
             # Set `lr_policy` to define how the learning rate changes during training.
             # Here, we 'step' the learning rate by multiplying it by a factor `gamma`
             # every `stepsize` iterations.
-            s.lr_policy = 'step'
+            s.lr_policy = 'multistep'
             s.gamma = 0.1
-            s.stepsize = int(60000/arm['lr_step'])
+            s.stepvalue.append(40000)
+            size=int((s.max_iter-40000)/arm['lr_step'])
+            for j in range(arm['lr_step']):
+                s.stepvalue.append(40000+(j+1)*size)
 
             # Set other SGD hyperparameters. Setting a non-zero `momentum` takes a
             # weighted average of the current gradient and previous gradients to make
@@ -178,11 +181,19 @@ class nin_conv(ModelInf):
             arm['dir']=dir+"/"+dirname
             arm['n_iter']=0
             arm['batch_size']=100
-            hps=['momentum','learning_rate1','learning_rate2','learning_rate3',
-                'weight_cost1','weight_cost2','weight_cost3',
-                'dropout1','dropout2','w_init1','w_init2','w_init3','lr_step']
-            for p in hps:
-                arm[p]=params[p]
+            arm['momentum']=0.9
+            arm['learning_rate1']=0.1
+            arm['learning_rate2']=0.1
+            arm['learning_rate3']=0.01
+            arm['weight_cost1']=0.0001
+            arm['weight_cost2']=0.0001
+            arm['weight_cost3']=0.0001
+            arm['dropout1']=0.5
+            arm['dropout2']=0.5
+            arm['w_init1']=0.05
+            arm['w_init2']=0.05
+            arm['w_init3']=0.05
+            arm['lr_step']=2
             arm['train_net_file'] = build_net(arm,1)
             arm['val_net_file'] = build_net(arm,2)
             arm['test_net_file'] = build_net(arm,3)
@@ -281,11 +292,11 @@ def main():
     data_dir=sys.argv[1]
     output_dir=sys.argv[2]
     #"/home/lisha/school/caffe/examples/cifar10"
-    model= nin_conv("cifar10",data_dir,device=0)
+    model= nin_conv("cifar100",data_dir,device=1)
     param=get_nin_search_space()
     #"/home/lisha/school/Projects/hyperband_nnet/hyperband2/cifar10/default"
     arms = model.generate_arms(1,output_dir,param,True)
-    train_loss,val_acc, test_acc = model.run_solver('iter',2000,arms[0])
+    train_loss,val_acc, test_acc = model.run_solver('iter',5000,arms[0])
     print train_loss, val_acc, test_acc
 
 
