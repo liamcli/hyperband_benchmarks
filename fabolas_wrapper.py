@@ -1,5 +1,6 @@
 import time
 import numpy
+import functools
 import pickle
 import os
 import sys,getopt
@@ -18,6 +19,7 @@ class Logger(object):
 
 class fabolas_search:
     def __init__(self,params,model,units,budget,runtime,dir,min_units,max_units):
+        self.results=[]
         self.params=params
         self.model=model
         self.units=units
@@ -27,6 +29,7 @@ class fabolas_search:
         self.min_units=min_units
         self.max_units=max_units
         self.hps=params.keys()
+        self.arms=[]
     def get_hp_ranges(self):
         X_min=[]
         X_max=[]
@@ -46,15 +49,29 @@ class fabolas_search:
             n_units=int(numpy.exp(s))
             self.budget=self.budget-n_units
             if self.budget<0:
+                pickle.dump(self.results,open(self.dir+'/results.pkl','wb'))
                 raise Exception
-            #get an arm to set up directory structure and fill in default params
-            arm=self.model.generate_arms(1,self.dir, self.params)[0]
-            #replace random values with values in x vector
+            arm=None
+            #transform params
             for i in range(len(self.hps)):
                 hp=self.hps[i]
-                arm[hp]=self.params[hp].get_transformed_param(x[0,i])
+                x[0,i]=self.params[hp].get_transformed_param(x[0,i])
+            if calc_test_error:
+                for a in self.arms:
+                    if numpy.isclose(a[self.hps[0]],x[0,0],10.0**(-6)):
+                        arm=a
+                    n_units=self.max_units
+            else:
+                #get an arm to set up directory structure and fill in default params
+                arm=self.model.generate_arms(1,self.dir, self.params)[0]
+                #replace random values with values in x vector
+                for i in range(len(self.hps)):
+                    hp=self.hps[i]
+                    arm[hp]=x[0,i]
+                self.arms.append(arm)
             train_loss,val_acc, test_acc=self.model.run_solver(self.units, n_units, arm)
             duration=time.time()-start_time
+            self.results.append([arm,train_loss,val_acc,test_acc,duration])
             print arm
             print n_units,val_acc,test_acc, duration/60.0
             if calc_test_error:
@@ -65,7 +82,8 @@ class fabolas_search:
             raise Exception  # rethrowing exception to break out of parent
     def run(self):
         X_lower,X_upper=self.get_hp_ranges()
-        fabolas_fmin(self.objective_function,X_lower,X_upper,self.dir,total_time=self.runtime)
+        fabolas_fmin(self.objective_function,X_lower,X_upper,self.dir,total_time=self.runtime,test_func=functools.partial(self.objective_function,calc_test_error=True))
+
 
 def main(argv):
 
@@ -101,8 +119,8 @@ def main(argv):
     if model=='cifar10':
         from cifar10.cifar10_helper import get_cnn_search_space,cifar10_conv
         params = get_cnn_search_space()
-        obj=cifar10_conv(data_dir,device=device_id,seed=seed_id)
-        searcher=fabolas_search(params,obj,'iter',30000*50,3600*48,dir,100,30000)
+        obj=cifar10_conv(data_dir,device=device_id,seed=seed_id,max_iter=5000)
+        searcher=fabolas_search(params,obj,'iter',30000/2.5,3600*48,dir,50,2000)
         searcher.run()
 
     elif model=='svhn':
