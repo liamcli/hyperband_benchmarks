@@ -7,16 +7,6 @@ import sys,getopt
 from robo.fmin import fabolas_fmin
 
 
-class Logger(object):
-    def __init__(self,dir):
-        self.terminal = sys.stdout
-        self.log = open(dir+"/hyperband_run.log", "a")
-
-    def write(self, message):
-        self.terminal.write(message)
-        self.log.write(message)
-        self.log.flush()
-
 class fabolas_search:
     def __init__(self,params,model,units,budget,runtime,dir,min_units,max_units):
         self.results=[]
@@ -30,6 +20,7 @@ class fabolas_search:
         self.max_units=max_units
         self.hps=params.keys()
         self.arms=[]
+        self.file=open(self.dir+'/hyperband_run.log','wb')
     def get_hp_ranges(self):
         X_min=[]
         X_max=[]
@@ -50,6 +41,7 @@ class fabolas_search:
             self.budget=self.budget-n_units
             if self.budget<0:
                 pickle.dump(self.results,open(self.dir+'/results.pkl','wb'))
+                self.file.close()
                 raise Exception
             arm=None
             #transform params
@@ -72,7 +64,10 @@ class fabolas_search:
             train_loss,val_acc, test_acc=self.model.run_solver(self.units, n_units, arm)
             duration=time.time()-start_time
             self.results.append([arm,train_loss,val_acc,test_acc,duration])
-            print arm
+            self.file.write(str(arm))
+            self.file.write("\n")
+            self.file.write(str(n_units)+', '+str(val_acc)+', '+str(test_acc)+', '+str(duration/60.0))
+            self.file.write("\n")
             print n_units,val_acc,test_acc, duration/60.0
             if calc_test_error:
                 return numpy.array([[[numpy.log(1-val_acc)]],[[duration]],[[numpy.log(1-test_acc)]]])
@@ -83,7 +78,6 @@ class fabolas_search:
     def run(self):
         X_lower,X_upper=self.get_hp_ranges()
         fabolas_fmin(self.objective_function,X_lower,X_upper,self.dir,total_time=self.runtime,test_func=functools.partial(self.objective_function,calc_test_error=True))
-
 
 def main(argv):
 
@@ -115,12 +109,11 @@ def main(argv):
     #Starting 6 used increasing budget, before used constant budget for max metaarms
     if not os.path.exists(dir):
         os.makedirs(dir)
-    sys.stdout = Logger(dir)
     if model=='cifar10':
         from cifar10.cifar10_helper import get_cnn_search_space,cifar10_conv
         params = get_cnn_search_space()
-        obj=cifar10_conv(data_dir,device=device_id,seed=seed_id,max_iter=5000)
-        searcher=fabolas_search(params,obj,'iter',30000/2.5,3600*48,dir,50,2000)
+        obj=cifar10_conv(data_dir,device=device_id,seed=seed_id,max_iter=30000)
+        searcher=fabolas_search(params,obj,'iter',30000*50,3600*48,dir,100,30000)
         searcher.run()
 
     elif model=='svhn':
