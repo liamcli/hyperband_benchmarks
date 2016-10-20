@@ -33,6 +33,25 @@ class Param(object):
     if self.interval:
       return (numpy.floor(val / self.interval) * self.interval).astype(int)
     return val
+  def get_transformed_param(self, x):
+    if self.distrib == 'normal':
+      print 'not implemented'
+      return None
+    else:
+      val=x
+      if self.scale == "log":
+        val = self.logbase**x
+      if self.interval:
+        val=(numpy.floor(val / self.interval) * self.interval).astype(int)
+    return val
+  def get_min(self):
+    return self.min_val
+  def get_max(self):
+    return self.max_val
+  def get_type(self):
+    if self.interval:
+      return 'integer'
+    return 'continuous'
 
 class IntParam(Param):
   def __init__(self, name, min_val, max_val, init_val=None):
