@@ -23,6 +23,7 @@ class nin_conv(ModelInf):
         caffe.set_device(device)
         caffe.set_mode_gpu()
         self.device=device
+        self.seed=seed
         numpy.random.seed(seed)
         self.problem=problem
 
@@ -62,6 +63,7 @@ class nin_conv(ModelInf):
                 n.data, n.label = caffe.layers.Data(batch_size=100, backend=backend, source=self.data_dirs[1],ntop=2)
             elif split==3:
                 n.data, n.label = caffe.layers.Data(batch_size=100, backend=backend, source=self.data_dirs[2],ntop=2)
+            pool_map={1:'ave',2:'max'}
             param1=[dict(lr_mult=arm['learning_rate1'],decay_mult=arm['weight_cost1']),dict(lr_mult=2*arm['learning_rate1'],decay_mult=2*arm['weight_cost1'])]
             param2=[dict(lr_mult=arm['learning_rate2'],decay_mult=arm['weight_cost2']),dict(lr_mult=2*arm['learning_rate2'],decay_mult=2*arm['weight_cost2'])]
             param3=[dict(lr_mult=arm['learning_rate3'],decay_mult=arm['weight_cost3']),dict(lr_mult=2*arm['learning_rate3'],decay_mult=2*arm['weight_cost3'])]
@@ -74,7 +76,7 @@ class nin_conv(ModelInf):
             n.conv1c = conv_layer(n.conv1b, ks=1,nout=96,stride=1,pad=0,group=1,param=param1,
                 weight_filler=dict(type='gaussian', std=arm['w_init1']), bias_filler=dict(type='constant'))
             n.relu1c = caffe.layers.ReLU(n.conv1c, in_place=True)
-            n.pool1 = pooling_layer(n.conv1c,type='max',ks=3,stride=2)
+            n.pool1 = pooling_layer(n.conv1c,type=pool_map[2],ks=3,stride=2)
             n.dropout1 = caffe.layers.Dropout(n.pool1,dropout_ratio=arm['dropout1'],in_place=True)
             n.conv2a = conv_layer(n.pool1, ks=5,nout=192,stride=1,pad=2,group=0,param=param2,
                 weight_filler=dict(type='gaussian', std=arm['w_init2']), bias_filler=dict(type='constant'))
@@ -85,7 +87,7 @@ class nin_conv(ModelInf):
             n.conv2c = conv_layer(n.conv2b, ks=1,nout=192,stride=1,pad=0,group=1,param=param2,
                 weight_filler=dict(type='gaussian', std=arm['w_init2']), bias_filler=dict(type='constant'))
             n.relu2c = caffe.layers.ReLU(n.conv2c, in_place=True)
-            n.pool2 = pooling_layer(n.conv2c,type='max',ks=3,stride=2)
+            n.pool2 = pooling_layer(n.conv2c,type=pool_map[1],ks=3,stride=2)
             n.dropout2 = caffe.layers.Dropout(n.pool2,dropout_ratio=arm['dropout2'],in_place=True)
             n.conv3a = conv_layer(n.pool2, ks=3,nout=192,stride=1,pad=1,group=0,param=param3,
                 weight_filler=dict(type='gaussian', std=arm['w_init3']), bias_filler=dict(type='constant'))
@@ -96,7 +98,7 @@ class nin_conv(ModelInf):
             n.conv3c = conv_layer(n.conv3b, ks=1,nout=n_class,stride=1,pad=0,group=1,param=param3,
                 weight_filler=dict(type='gaussian', std=arm['w_init3']), bias_filler=dict(type='constant'))
             n.relu3c = caffe.layers.ReLU(n.conv3c, in_place=True)
-            n.pool3 = pooling_layer(n.conv3c,type='ave',ks=8,stride=1)
+            n.pool3 = pooling_layer(n.conv3c,type=pool_map[1],ks=8,stride=1)
             n.loss = caffe.layers.SoftmaxWithLoss(n.pool3,n.label)
 
             
@@ -140,10 +142,12 @@ class nin_conv(ModelInf):
             # Set `lr_policy` to define how the learning rate changes during training.
             # Here, we 'step' the learning rate by multiplying it by a factor `gamma`
             # every `stepsize` iterations.
-            s.lr_policy = 'step'
+            s.lr_policy = 'multistep'
             s.gamma = 0.1
-            s.stepsize=s.max_iter/arm['lr_step']
-            #s.stepvalue.append(40000)
+            #s.stepsize=s.max_iter/arm['lr_step']
+            s.stepvalue.append(40000)
+            s.stepvalue.append(50000)
+            s.stepvalue.append(60000)
             #size=int((s.max_iter-40000)/arm['lr_step'])
             #for j in range(arm['lr_step']):
             #    s.stepvalue.append(40000+(j+1)*size)
@@ -154,7 +158,7 @@ class nin_conv(ModelInf):
             # the model from overfitting.
             s.momentum = arm['momentum']
             s.weight_decay = weight_decay
-
+            s.random_seed=self.seed+int(arm['dir'][arm['dir'].index('arm')+3:])
             # Display the current training loss and accuracy every 1000 iterations.
             s.display = 100
 
@@ -218,7 +222,7 @@ class nin_conv(ModelInf):
             #arm['learning_rate']=5*10**random.uniform(-5,-1)
             hps=['momentum','learning_rate1','learning_rate2','learning_rate3',
             'weight_cost1','weight_cost2','weight_cost3',
-            'dropout1','dropout2','w_init1','w_init2','w_init3','lr_step']
+            'dropout1','dropout2','w_init1','w_init2','w_init3']
             for hp in hps:
                 val=params[hp].get_param_range(1,stochastic=True)
                 arm[hp]=val[0]
@@ -271,6 +275,7 @@ class nin_conv(ModelInf):
 
         val_acc=val_acc/val_batches
         test_acc=test_acc/test_batches
+        del s
         return train_loss,val_acc, test_acc
 def get_nin_search_space():
     params={}
@@ -286,7 +291,9 @@ def get_nin_search_space():
     params['w_init1']=Param('w_init1',numpy.log(10**(-2)),0.0,distrib='uniform',scale='log')
     params['w_init2']=Param('w_init2',numpy.log(10**(-2)),0.0,distrib='uniform',scale='log')
     params['w_init3']=Param('w_init3',numpy.log(10**(-2)),0.0,distrib='uniform',scale='log')
-    params['lr_step']=Param('lr_step',1,4,distrib='uniform',scale='linear',interval=1)
+    #params['pool1']=Param('pool1',1,3,distrib='uniform',scale='linear',interval=1)
+    #params['pool2']=Param('pool2',1,3,distrib='uniform',scale='linear',interval=1)
+    #params['pool3']=Param('pool3',1,3,distrib='uniform',scale='linear',interval=1)
     return params
 
 def main():

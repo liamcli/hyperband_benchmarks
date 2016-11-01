@@ -240,6 +240,7 @@ class cifar10_conv(ModelInf):
                 test_acc += s.test_nets[1].blobs['acc'].data
         val_acc=val_acc/batches
         test_acc=test_acc/batches
+        del s
         return train_loss,val_acc, test_acc
 
 def get_cnn_search_space():
