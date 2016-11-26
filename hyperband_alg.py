@@ -197,12 +197,12 @@ def main(argv):
         obj=mrbi_conv(data_dir,device=device_id,seed=seed_id)
         hyperband_finite(obj,360,'iter',dir,params,100,30000,max_k=10,s_run=4,adaptive=False)
     elif model=='cifar10_svm':
-        from kernel.svm_helper import get_svm_search,svm_model
+        from kernel.kernel_lsqr_helper import get_svm_search,svm_model
         params= get_svm_search()
         obj=svm_model('cifar10',data_dir,seed_id)
         hyperband_finite(obj,12*60,'iter',dir,params,100,len(obj.orig_data['y_train']), adaptive=False)
     elif model=='cifar10_svm_s4':
-        from kernel.svm_helper import get_svm_search,svm_model
+        from kernel.kernel_lsqr_helper import get_svm_search,svm_model
         params= get_svm_search()
         obj=svm_model('cifar10',data_dir,seed_id)
         hyperband_finite(obj,12*60,'iter',dir,params,100,len(obj.orig_data['y_train']),max_k=10,s_run=4,adaptive=False)

@@ -221,7 +221,7 @@ class svm_model(ModelInf):
         else:
             train_subset=self.data['X_train']
             train_targets_subset=self.data['y_train']
-        # Train the SVM on the subset set
+        # Train model on the subset
         if solver_type=='SVM':
             clf = svm.SVC(C=arm['C'], kernel=kernel_map[arm['kernel']], gamma=arm['gamma'], coef0=arm['coef0'], degree=arm['degree'])
             clf.fit(train_subset, train_targets_subset)
