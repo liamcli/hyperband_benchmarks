@@ -44,8 +44,24 @@ def sha_inf(model,params,units,dir,n,B,eta=2,calculate=True):
         return None, None
 
 
-def hyperband_inf(model,runtime,units,dir,params,eta,max_k=3, starting_b=1,min_unit=1,min_arms=64,max_unit=None,calculate=True):
-    # input t in minutes
+def hyperband_inf(model,runtime,units,dir,params,eta,max_k=3, starting_b=1,min_unit=1,min_arms=1,max_unit=None,calculate=True):
+    # inputs:
+    # model - object with necessary subroutines to generate arms and train models
+    # runtime - total time to run the optimization routine
+    # units - type of resource that will be allocated choices are "iter" or "time."  iter should be used for everything if
+    #         time is not the desired resource
+    # dir - output directory to store the files for this run
+    # params - object with specified hyperparameter search space from which arms are sampled
+    # eta - elimination rate
+    # max_k - # of times to run hyperband, i.e. # of times to repeat the outer loops over the tradeoffs s
+    # starting_b - starting budget for each bracket.  Each outer loop of infinite horizon hyperband doubles this budget
+    #              by a factor of 2.
+    # min_units - minimum units to train any configuration on
+    # min_arms - option to set a minimum # of arms so that any bracket that tries fewer than min_arms is excluded from
+    #            the run.
+    # max_units - not required, optional input in case a max_unit is desired
+    # calculate - flag to skip calculation if desired to see the allocation scheme with the inputed parameters
+
     t_0 = time.time()
     print time.localtime(t_0)
     def log_eta(x):
@@ -119,11 +135,6 @@ def main(argv):
         params = get_cnn_search_space()
         obj=cifar10_conv(data_dir,device=device_id,seed=seed_id)
         hyperband_inf(obj,720,'iter',dir,params,4,max_k=3,starting_b=60000,min_unit=100,min_arms=4,calculate=True)
-    if model=='cifar10_random_features':
-        from svm.random_features_helper import get_svm_search,random_features_model
-        params = get_svm_search()
-        obj=random_features_model('cifar10',data_dir,seed=seed_id)
-        hyperband_inf(obj,12*60,'iter',dir,params,4,max_k=4,starting_b=50000,min_unit=100,min_arms=4,max_unit=100000,calculate=False)
 
 if __name__=="__main__":
     main(sys.argv[1:])

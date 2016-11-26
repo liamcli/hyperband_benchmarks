@@ -102,8 +102,8 @@ class cifar10_conv(ModelInf):
             # affecting memory utilization.
             s.iter_size = 1
 
-            # 150 epochs max
-            s.max_iter = self.max_iter     # # of times to update the net (training iterations)
+            # Set max_iter R
+            s.max_iter = self.max_iter     # of times to update the net (training iterations)
 
             # Solve using the stochastic gradient descent (SGD) algorithm.
             # Other choices include 'Adam' and 'RMSProp'.
@@ -250,11 +250,7 @@ def get_cnn_search_space():
     params['weight_cost2']=Param('weight_cost2',numpy.log(5*10**(-5)),numpy.log(5),distrib='uniform',scale='log')
     params['weight_cost3']=Param('weight_cost3',numpy.log(5*10**(-5)),numpy.log(5),distrib='uniform',scale='log')
     params['weight_cost4']=Param('weight_cost4',numpy.log(5*10**(-3)),numpy.log(500),distrib='uniform',scale='log')
-    #arm['size']=3
     params['scale']=Param('scale',numpy.log(5*10**(-6)),numpy.log(5),distrib='uniform',scale='log')
-    #before 2000
-    #arm['power']=random.uniform(0.25,5)
-    #int(10**random.uniform(2,4)/100)*100
     params['power']=Param('power',0.01,3,distrib='uniform',scale='linear')
     params['lr_step']=Param('lr_step',1,5,distrib='uniform',scale='linear',interval=1)
 
@@ -262,6 +258,7 @@ def get_cnn_search_space():
 
 
 def main():
+    # Use for testing
     data_dir=sys.argv[1]
     output_dir=sys.argv[2]
     #"/home/lisha/school/caffe/examples/cifar10"

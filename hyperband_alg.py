@@ -16,8 +16,23 @@ class Logger(object):
         self.terminal.write(message)
         self.log.write(message)
         self.log.flush()
-def hyperband_finite(model,runtime,units,dir,params,min_units,max_units,eta=4.,B=0,max_k=2,s_run=None,bounded=True, adaptive=False):
-    # input t in minutes
+def hyperband_finite(model,runtime,units,dir,params,min_units,max_units,eta=4.,B=0,max_k=2,s_run=None,bounded=True,adaptive=False):
+    # inputs:
+    # model - object with necessary subroutines to generate arms and train models
+    # runtime - total time to run the optimization routine
+    # units - type of resource that will be allocated choices are "iter" or "time."  iter should be used for everything if
+    #         time is not the desired resource
+    # dir - output directory to store the files for this run
+    # params - object with specified hyperparameter search space from which arms are sampled
+    # min_units - minimum units to train any configuration on
+    # max_units - maximum units per configuration
+    # NOTE: R in the algorithm corresponds to max_units/min_units
+    # eta - elimination rate
+    # B - budget per bracket of successive halving
+    # max_k - # of times to run hyperband, i.e. # of times to repeat the outer loops over the tradeoffs s
+    # s_run - option to repeat a specific bracket (takes integer argument, needs to be within possible range of s)
+    # bounded - option to toggle whether to use doubling budget in outer loop or constant budget.  True uses constant budget
+    # False uses doubling budget.
     t_0 = time.time()
     print time.localtime(t_0)
     def minutes(t):
@@ -36,9 +51,7 @@ def hyperband_finite(model,runtime,units,dir,params,min_units,max_units,eta=4.,B
                 B = int((2**k)*max_units)
 
         k+=1
-        #if bounded:
-        #    max_halvings = int(numpy.log(max_units/min_units)/numpy.log(eta))
-        #    k = min(numpy.ceil(numpy.log2(max_halvings+1)),k)
+
         print "\nBudget B = %d" % B
         print '###################'
 
@@ -80,15 +93,15 @@ def hyperband_finite(model,runtime,units,dir,params,min_units,max_units,eta=4.,B
                        best_arm=result[0]
                 pickle.dump([time_test,results_dict],open(dir+'/results.pkl','w'))
                 ell-=1
-
-        #print minutes(time.time())
-        #print time.localtime(time.time())
+        # This option is included here for reproducibility only.  We do not recommend using this naive approach to adaptive configuration
+        # selection.  REMEMBER!  Exclude brackets that use this adaptive heuristic when aggregating results.
         if adaptive:
             zoom_params=zoom_space(params,best_arm)
             arms,result = sha_finite(model,zoom_params,units, best_n,best_s,eta,R,dir)
             results_dict[(k,ell)]=arms
             print "k="+str(k)+", l="+str(ell)+", val_acc="+str(result[2])+", test_acc="+str(result[3])+" best_arm_dir: " + result[0]['dir']
             time_test.append([minutes(time.time()),result])
+
 
 
 
@@ -149,7 +162,7 @@ def main(argv):
         elif opt in ("-d", "--device"):
             device_id= int(arg)
     dir=output_dir+'/trial'+str(seed_id)
-    #Starting 6 used increasing budget, before used constant budget for max metaarms
+
     if not os.path.exists(dir):
         os.makedirs(dir)
     sys.stdout = Logger(dir)
@@ -158,16 +171,11 @@ def main(argv):
         params = get_cnn_search_space()
         obj=cifar10_conv(data_dir,device=device_id,seed=seed_id)
         hyperband_finite(obj,360,'iter',dir,params,100,30000,adaptive=True)
-    if model=='cifar10_s4':
+    elif model=='cifar10_s4':
         from cifar10.cifar10_helper import get_cnn_search_space,cifar10_conv
         params = get_cnn_search_space()
         obj=cifar10_conv(data_dir,device=device_id,seed=seed_id)
         hyperband_finite(obj,360,'iter',dir,params,100,30000,max_k=10,s_run=4,adaptive=False)
-    if model=='cifar10_long':
-        from cifar10.cifar10_helper import get_cnn_search_space,cifar10_conv
-        params = get_cnn_search_space()
-        obj=cifar10_conv(data_dir,device=device_id,seed=seed_id,max_iter=120000)
-        hyperband_finite(obj,1440,'iter',dir,params,200,120000,adaptive=True)
     elif model=='svhn':
         from svhn.svhn_helper import get_cnn_search_space,svhn_conv
         params = get_cnn_search_space()
@@ -188,48 +196,23 @@ def main(argv):
         params = get_cnn_search_space()
         obj=mrbi_conv(data_dir,device=device_id,seed=seed_id)
         hyperband_finite(obj,360,'iter',dir,params,100,30000,max_k=10,s_run=4,adaptive=False)
-    elif model=='svhn_agg':
-        from svhn.svhn_helper import get_cnn_search_space,svhn_conv
-        params = get_cnn_search_space()
-        obj=svhn_conv(data_dir,device=device_id,seed=seed_id)
-        hyperband_finite(obj,720,'iter',dir,params,100,60000,eta=6.0,adaptive=True,max_k=3)
-    elif model=='mrbi_agg':
-        from mrbi.mrbi_helper import get_cnn_search_space,mrbi_conv
-        params = get_cnn_search_space()
-        obj=mrbi_conv(data_dir,device=device_id,seed=seed_id)
-        hyperband_finite(obj,360,'iter',dir,params,100,30000,eta=6.0,adaptive=True,max_k=3)
-    elif model=='mrbi_10':
-        from mrbi.mrbi_helper import get_cnn_search_space,mrbi_conv
-        params = get_cnn_search_space()
-        obj=mrbi_conv(data_dir,device=device_id,seed=seed_id)
-        hyperband_finite(obj,360,'iter',dir,params,30,30000,eta=10.0,adaptive=True,max_k=3)
-    elif model=='cifar100':
-        from networkin.nin_helper import get_nin_search_space,nin_conv
-        params = get_nin_search_space()
-        obj=nin_conv("cifar100",data_dir,device_id,seed_id)
-        hyperband_finite(obj,24*60,'iter',dir,params,100,60000)
-    elif model=='mnist_svm':
-        from svm.svm_helper import get_svm_search,svm_model
-        params= get_svm_search()
-        obj=svm_model('mnist',data_dir,seed_id)
-        hyperband_finite(obj,24*60,'iter',dir,params,100,len(obj.orig_data['y_train']))
     elif model=='cifar10_svm':
-        from svm.svm_helper import get_svm_search,svm_model
+        from kernel.svm_helper import get_svm_search,svm_model
         params= get_svm_search()
         obj=svm_model('cifar10',data_dir,seed_id)
-        hyperband_finite(obj,12*60,'iter',dir,params,100,len(obj.orig_data['y_train']))
+        hyperband_finite(obj,12*60,'iter',dir,params,100,len(obj.orig_data['y_train']), adaptive=False)
     elif model=='cifar10_svm_s4':
-        from svm.svm_helper import get_svm_search,svm_model
+        from kernel.svm_helper import get_svm_search,svm_model
         params= get_svm_search()
         obj=svm_model('cifar10',data_dir,seed_id)
         hyperband_finite(obj,12*60,'iter',dir,params,100,len(obj.orig_data['y_train']),max_k=10,s_run=4,adaptive=False)
     elif model=='cifar10_random_features':
-        from svm.random_features_helper import get_svm_search,random_features_model
+        from kernel.random_features_helper import get_svm_search,random_features_model
         params=get_svm_search()
         obj=random_features_model('cifar10',data_dir,seed=seed_id)
-        hyperband_finite(obj,12*60,'iter',dir,params,200,100000)
+        hyperband_finite(obj,12*60,'iter',dir,params,200,100000, adaptive=False)
     elif model=='cifar10_random_features_s4':
-        from svm.random_features_helper import get_svm_search,random_features_model
+        from kernel.random_features_helper import get_svm_search,random_features_model
         params=get_svm_search()
         obj=random_features_model('cifar10',data_dir,seed=seed_id)
         hyperband_finite(obj,12*60,'iter',dir,params,200,100000,max_k=10,s_run=4,adaptive=False)

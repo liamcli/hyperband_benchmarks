@@ -101,7 +101,7 @@ class svhn_conv(ModelInf):
             # affecting memory utilization.
             s.iter_size = 1
 
-            # 150 epochs max
+            # Set max iter R
             s.max_iter = self.max_iter # # of times to update the net (training iterations)
 
             # Solve using the stochastic gradient descent (SGD) algorithm.
@@ -186,33 +186,16 @@ class svhn_conv(ModelInf):
             arm={}
             arm['dir']=dir+"/"+dirname
             arm['n_iter']=0
-            #before 1400
-            #arm['learning_rate']=5*10**random.uniform(-5,-1)
             hps=['learning_rate','weight_cost1','weight_cost2','weight_cost3','weight_cost4','scale','power','lr_step']
             for hp in hps:
                 val=params[hp].get_param_range(1,stochastic=True)
                 arm[hp]=val[0]
-            #arm['learning_rate']=5*10**random.uniform(-5,0)
-            #arm['weight_cost1']=5*10**random.uniform(-5,0)
-            #arm['weight_cost2']=5*10**random.uniform(-5,0)
-            #arm['weight_cost3']=5*10**random.uniform(-5,0)
-            #arm['weight_cost4']=5*10**random.uniform(-3,2)
-            #arm['size']=3
-            #arm['scale']=5*10**random.uniform(-6,0)
-            #before 2000
-            #arm['power']=random.uniform(0.25,5)
-            #int(10**random.uniform(2,4)/100)*100
-            #arm['power']=random.uniform(0.01,3)
+
             arm['batch_size']=100
-            #arm['lr_step']=int(random.uniform(1,6))*10000
             arm['init_std1']=0.0001
             arm['init_std2']=0.01
             arm['init_std3']=0.01
             arm['init_std4']=0.01
-            #arm['init_std1']=10**random.uniform(-6,-1)
-            #arm['init_std2']=10**random.uniform(-6,-1)
-            #arm['init_std3']=10**random.uniform(-6,-1)
-            #arm['init_std4']=10**random.uniform(-6,-1)
             arm['train_net_file'] = build_net(arm,1)
             arm['val_net_file'] = build_net(arm,2)
             arm['test_net_file'] = build_net(arm,3)
@@ -268,17 +251,13 @@ def get_cnn_search_space():
     params['weight_cost2']=Param('weight_cost2',numpy.log(5*10**(-5)),numpy.log(5),distrib='uniform',scale='log')
     params['weight_cost3']=Param('weight_cost3',numpy.log(5*10**(-5)),numpy.log(5),distrib='uniform',scale='log')
     params['weight_cost4']=Param('weight_cost4',numpy.log(5*10**(-3)),numpy.log(500),distrib='uniform',scale='log')
-    #params['momentum']=Param('momentum',0,1,distrib='uniform',scale='linear')
-    #arm['size']=3
     params['scale']=Param('scale',numpy.log(5*10**(-6)),numpy.log(5),distrib='uniform',scale='log')
-    #before 2000
-    #arm['power']=random.uniform(0.25,5)
-    #int(10**random.uniform(2,4)/100)*100
     params['power']=Param('power',0.01,3,distrib='uniform',scale='linear')
     params['lr_step']=Param('lr_step',1,5,distrib='uniform',scale='linear',interval=1)
     return params
 
 def main():
+    # Use for testing
     data_dir=sys.argv[1]
     output_dir=sys.argv[2]
     #"/home/lisha/school/caffe/examples/cifar10"

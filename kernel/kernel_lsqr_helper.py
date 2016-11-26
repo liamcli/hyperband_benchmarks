@@ -156,10 +156,7 @@ def create_dataset(data_name,data_dir,combine=False):
     return data
 
 
-# The optimization function that we want to optimize.
-# It gets a numpy array x with shape (1,D) where D are the number of parameters
-# and s which is the ratio of the training data that is used to
-# evaluate this configuration
+
 class svm_model(ModelInf):
     def __init__(self,name, data_dir, seed,combine=False):
         self.data_dir=data_dir
@@ -282,6 +279,7 @@ def get_svm_search():
 
     return params
 def main():
+    # Use for testing.
     data_dir="/home/lisha/school/Projects/hyperband_nnet/hyperband2/svm/cifar10"
     model=svm_model("cifar10",data_dir,3000,False)
     arm={}

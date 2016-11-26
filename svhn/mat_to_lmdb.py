@@ -112,7 +112,7 @@ def view_lmdb_data():
         y.append(label)
     print len(y)
 def main():
-    #make_test()
+    make_test()
     make_train_val()
     #print_image()
     #view_lmdb_data()

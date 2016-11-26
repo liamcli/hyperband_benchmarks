@@ -100,7 +100,8 @@ class ConditionalParam(object):
       return self.param
     return None
 
-
+# Adaptive heuristic zooms into a local portion of the search space.
+# Not recommended for actual use as there are no theoretical guarantees.
 def zoom_space(params,center,pct=0.40):
     new_params=copy.deepcopy(params)
     for p in params.keys():
