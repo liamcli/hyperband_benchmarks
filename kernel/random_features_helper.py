@@ -147,7 +147,6 @@ class random_features_model(ModelInf):
         #kernel_map=dict(zip([1,2,3],['rbf','poly','sigmoid']))
         preprocess_map=dict(zip([1,2,3,4],['none','min_max','scaled','normalized']))
         self.compute_preprocessor(preprocess_map[arm['preprocessor']])
-        print arm
         # Create random features
         features=kernel_approximation.RBFSampler(gamma=arm['gamma'],n_components=n_units, random_state=1)
         train_features=features.fit_transform(self.data['X_train'])
