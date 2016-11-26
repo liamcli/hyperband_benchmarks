@@ -43,7 +43,7 @@ pip install george
 pip install lmfit
 pip install triangle
 
-git clone https://github.com/lishal/hyperband_benchmarks.git
+git clone -b jmlr https://github.com/lishal/hyperband_benchmarks.git
 echo "/home/ubuntu/HPOlib" > $HOME/experiments/lib/python2.7/site-packages/hpolib.pth
 
 
