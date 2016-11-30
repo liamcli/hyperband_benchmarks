@@ -1,4 +1,4 @@
-Setup:
+## Step 1 Install necessary software and setup the environment: 
 Install CUDA 7.5
 Install cudnn 4.0.7
 
@@ -6,6 +6,7 @@ Install Caffe using the github repo with commit sha 389db963419ee8a6af7cc9b7fb39
 
 Run the hyperband_setup.sh script to get install the packages needed to reproduce the experiments.
 
+## Step 2 Download data and create lmdb datasets for CNN experiments:
 Data:
     CNN Experiment: 
         CIFAR-10: Run the following in the caffe root folder
@@ -17,7 +18,7 @@ Data:
 
     SVM and Random Features Experiment: Download the python version of the CIFAR-10 data from https://www.cs.toronto.edu/~kriz/cifar.html.
 
-Running the experiments:
+## Step 3 Start running experiments!
 HPOlib is used to run SMAC, TPE, Spearmint, and random search.
 - Go to directory of benchmark and run HPOlib-run with the desired inputs
 - CNN Experiments: For runs that do not use early stopping, set number_of_jobs in the config.cfg file for the benchmark to 50.  If early stopping, set number_of_jobs to 150 as a upper bound and stop a trial early if the total budget of 50*R has been exhausted.  Change the data_dir in the corresponding wrapper file to match your local file path for the data.
